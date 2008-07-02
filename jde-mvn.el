@@ -48,7 +48,10 @@ describing how the compilation finished"
 (defvar jde-mvn-interactive-goals-history nil
   "History of goals entered in the minibuffer.")
 
-(defun* jde-mvn-build (&optional (goals 'install)
+(defvar jde-mvn-default-goals 'install)
+(make-variable-buffer-local 'jde-mvn-default-goals)
+
+(defun* jde-mvn-build (&optional (goals jde-mvn-default-goals)
                                  (pom-file (pom-find-pom-file pom-file-name t)))
   "Run the mvn program specified by `pom-maven-command' on the
 given POM, triggering the given goals.  If `jde-mvn-read-args' is
@@ -65,9 +68,10 @@ pom-file from the minibuffer."
      (when prompt-for
        (list
         (if (memq 'goals prompt-for)
-            (read-from-minibuffer "Goals: " nil nil nil
-                                  jde-mvn-interactive-goals-history)
-          'install)
+            (setq jde-mvn-default-goals
+                  (read-from-minibuffer "Goals: " nil nil nil
+                                        jde-mvn-interactive-goals-history))
+          jde-mvn-default-goals)
         (if (memq 'pom-file prompt-for)
             (pom-prompt-for-pom-file)
           (pom-find-pom-file))))))
