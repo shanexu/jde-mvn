@@ -48,10 +48,15 @@ describing how the compilation finished"
 (defvar jde-mvn-interactive-goals-history nil
   "History of goals entered in the minibuffer.")
 
-(defvar jde-mvn-default-goals 'install)
-(make-variable-buffer-local 'jde-mvn-default-goals)
+(defvar jde-mvn-default-goals-alist nil)
 
-(defun* jde-mvn-build (&optional (goals jde-mvn-default-goals)
+(defvar jde-mvn-default-goals 'install)
+
+(defun jde-mvn-get-default-goals (pom-file)
+  (or (cdr (assoc-string pom-file jde-mvn-default-goals-alist))
+      jde-mvn-default-goals))
+
+(defun* jde-mvn-build (&optional goals
                                  (pom-file (pom-find-pom-file pom-file-name t)))
   "Run the mvn program specified by `pom-maven-command' on the
 given POM, triggering the given goals.  If `jde-mvn-read-args' is
@@ -66,15 +71,21 @@ pom-file from the minibuffer."
                             '(goals pom-file))
                            (t '(goals)))))
      (when prompt-for
-       (list
-        (if (memq 'goals prompt-for)
-            (setq jde-mvn-default-goals
-                  (read-from-minibuffer "Goals: " nil nil nil
-                                        jde-mvn-interactive-goals-history))
-          jde-mvn-default-goals)
-        (if (memq 'pom-file prompt-for)
-            (pom-prompt-for-pom-file)
-          (pom-find-pom-file))))))
+       (let* ((pom (if (memq 'pom-file prompt-for)
+                       (pom-prompt-for-pom-file)
+                     (pom-find-pom-file)))
+              (goals (if (memq 'goals prompt-for)
+                         (setq jde-mvn-default-goals
+                               (read-from-minibuffer "Goals: " nil nil nil
+                                                     jde-mvn-interactive-goals-history))
+                       (jde-mvn-get-default-goals pom))))
+         (list goals pom)))))
+  (unless goals
+    (setq goals (jde-mvn-get-default-goals pom-file)))
+  (let ((cell (assoc-string pom-file jde-mvn-default-goals-alist)))
+    (if cell
+        (rplacd cell goals)
+      (setq jde-mvn-default-goals-alist (acons pom-file goals jde-mvn-default-goals-alist))))
   (let ((compile-command
          (mapconcat #'identity
                     `(,pom-maven-command
