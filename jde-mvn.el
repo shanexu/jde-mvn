@@ -15,118 +15,80 @@
 ;; TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 ;; PERFORMANCE OF THIS SOFTWARE.
 ;;
+;;; Dependencies
+;;
+;; This package depends on JDEE (obviously) and nxml-mode (not so
+;; obviously).
+;;
+;; JDEE is available from http://jdee.sourceforge.net/
+;;
+;; nxml-mode is part of Emacs as of Emacs 23.  For earlier versions it
+;; is available as part of many Linux distributions, otherwise you may
+;; find it at http://www.thaiopensource.com/nxml-mode/.
+;;
+;;; Examples
+;;
+;; A typical prj.el now looks like this:
+;;
+;; (jde-project-file-version "1.0")
+;; (jde-set-variables
+;;  '(jde-compile-option-command-line-args
+;;    (quote ("-Xlint:all" "-Xlint:-serial"))))
+;;
+;; (require 'jde-mvn)
+;; (with-pom nil
+;;   (jde-mvn-set-jde-variables :include-dependency-sources t))
+;;
+;; You may also want to ask Maven to download sources; see the
+;; functions `jde-mvn-resolve-source-artifacts'.
+;;
+;; A function is provided to add dependencies to the POM;
+;; `jde-mvn-pom-add-dependency' is your friend.
+;;
 
 (require 'cl)
 (require 'jde)
-
-(require 'pom-parser)
 
 (defgroup jde-mvn nil
   "JDE Maven 2"
   :group 'jde
   :prefix "jde-mvn-")
 
-(defcustom jde-mvn-read-args nil
-  "*Specify whether to prompt for additional arguments to pass to
-mvn.  If non-nil, the jde-mvn-build command prompts you for the
-additional arguments."
-  :group 'jde-mvn
-  :type 'boolean)
+(defcustom jde-mvn-pom-file-name "pom.xml"
+  "*Default name of a POM file."
+  :type 'string
+  :group 'jde-mvn)
 
-(defcustom jde-mvn-build-hook '(jde-compile-finish-kill-buffer
-                                jde-compile-finish-refresh-speedbar
-                                jde-compile-finish-update-class-info)
-  "*List of hook functions run by `jde-mvn-build' (see `run-hooks'). Each
-function should accept two arguments: the compilation buffer and a string
-describing how the compilation finished"
-  :group 'jde-mvn
-  :type 'hook)
+(defcustom jde-mvn-command "mvn"
+  "*The command to execute Maven 2.  Set this to the full path to
+`mvn' if that command is not on your path, or if it's called something
+funky on your system."
+  :type 'string
+  :group 'jde-mvn)
 
-(defvar jde-mvn-interactive-args-history nil
-  "History of arguments entered in the minibuffer.")
+(defcustom jde-mvn-local-repository (expand-file-name "~/.m2/repository")
+  "*The path to your local Maven repository."
+  :type 'string
+  :group 'jde-mvn)
 
-(defvar jde-mvn-interactive-goals-history nil
-  "History of goals entered in the minibuffer.")
-
-(defvar jde-mvn-default-goals-alist nil)
-
-(defvar jde-mvn-default-goals 'install)
-
-(defun jde-mvn-get-default-goals (pom-file)
-  (or (cdr (assoc-string pom-file jde-mvn-default-goals-alist))
-      jde-mvn-default-goals))
-
-(defun* jde-mvn-build (&optional goals
-                                 (pom-file (pom-find-pom-file pom-file-name t)))
-  "Run the mvn program specified by `pom-maven-command' on the
-given POM, triggering the given goals.  If `jde-mvn-read-args' is
-non-nil, read additional arguments for mvn from the minibuffer.
-If given a prefix arg, read goals from the minibuffer.  If given
-two prefix args (e.g. C-u C-u jde-mvn-build, read both goals and
-pom-file from the minibuffer."
-  (interactive
-   (let ((prompt-for (cond ((null current-prefix-arg) nil)
-                           ((and (consp current-prefix-arg)
-                                 (eql (car current-prefix-arg) 16))
-                            '(goals pom-file))
-                           (t '(goals)))))
-     (when prompt-for
-       (let* ((pom (if (memq 'pom-file prompt-for)
-                       (pom-prompt-for-pom-file)
-                     (pom-find-pom-file)))
-              (goals (if (memq 'goals prompt-for)
-                         (setq jde-mvn-default-goals
-                               (read-from-minibuffer "Goals: " nil nil nil
-                                                     jde-mvn-interactive-goals-history))
-                       (jde-mvn-get-default-goals pom))))
-         (list goals pom)))))
-  (unless goals
-    (setq goals (jde-mvn-get-default-goals pom-file)))
-  (let ((cell (assoc-string pom-file jde-mvn-default-goals-alist)))
-    (if cell
-        (rplacd cell goals)
-      (setq jde-mvn-default-goals-alist (acons pom-file goals jde-mvn-default-goals-alist))))
-  (let ((compile-command
-         (mapconcat #'identity
-                    `(,pom-maven-command
-                      "-B" "-N" "-f" ,pom-file
-                      ,@(cond ((symbolp goals)
-                               (list (symbol-name goals)))
-                              ((consp goals)
-                               (mapcar #'symbol-name goals))
-                              (t (list goals)))
-                      ,@(when jde-mvn-read-args
-                          (list (read-from-minibuffer "Extra args: " nil nil nil jde-mvn-interactive-args-history))))
-                    " "))
-        process-connection-type)
-    (save-some-buffers (not compilation-ask-about-save) nil)
-    (setq compilation-finish-functions 
-          (list #'(lambda (buf msg)
-                    (run-hook-with-args 'jde-mvn-build-hook buf msg)
-                    (setq compilation-finish-functions nil))))
-    (compilation-start compile-command)))
-
-(defun jde-mvn-find-failed-tests ()
+(defun* jde-mvn-find-pom-file (&optional (pom-file-name jde-mvn-pom-file-name) noerror)
+  "Find the next POM file upwards in the directory hierarchy.
+If NOERROR is NIL, an error will be signalled if no POM file
+could be found."
   (interactive)
-  (pop-to-buffer (compilation-find-buffer))
-  (or (looking-at "  \\(\\w+\\)(\\([[:alnum:].]+\\))")
-      (re-search-forward "Failed tests:" (point-max) t))
-  (forward-line 1)
-  (when (looking-at "  \\(\\w+\\)(\\([[:alnum:].]+\\))")
-    (let ((class (match-string-no-properties 2))
-          (method (match-string-no-properties 1)))
-      (jde-find-class-source class t))))
+  (let ((tag (gensym)))
+    (catch tag
+      (let ((pom (expand-file-name jde-mvn-pom-file-name)))
+        (while (not (file-exists-p pom))
+          (if (jde-root-dir-p (file-name-directory pom))
+              (if noerror
+                  (throw tag nil)
+                (error "%s not found" (file-name-nondirectory pom)))
+            (setq pom (expand-file-name (concat "../" (file-name-nondirectory pom))
+                                        (file-name-directory pom)))))
+        pom))))
 
-
-;;; Hack alert!
-;;; Insinuate jde-mvn-build into the custom definition of
-;;; jde-build-function
-(let ((type (cadr (get 'jde-build-function 'custom-type))))
-  (unless (member '(const jde-mvn-build) type)
-    (put 'jde-build-function 'custom-type
-         (list 'list
-               (append (butlast type)
-                       (list '(const jde-mvn-build))
-                       (last type))))))
+(require 'jde-mvn-pom)
+(require 'jde-mvn-build)
 
 (provide 'jde-mvn)
