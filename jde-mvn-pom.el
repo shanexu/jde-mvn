@@ -173,18 +173,23 @@ the <PROPERTY> element in the <configuration> element in that plugin."
 
 (defun* jde-mvn-compiler-source (&optional (pom-node *pom-node*))
   "Returns the configured `source' option for javac."
-  (jde-mvn-get-pom-plugin-configuration-property pom-node
-                                                 'maven-compiler-plugin 'source))
+  (or (jde-mvn-get-pom-plugin-configuration-property pom-node
+                                                     'maven-compiler-plugin
+                                                     'source)
+      jde-mvn-default-compiler-source))
 
 (defun* jde-mvn-compiler-target (&optional (pom-node *pom-node*))
   "Returns the configured `target' option for javac."
-  (jde-mvn-get-pom-plugin-configuration-property pom-node
-                                                 'maven-compiler-plugin 'target))
+  (or (jde-mvn-get-pom-plugin-configuration-property pom-node
+                                                     'maven-compiler-plugin
+                                                     'target)
+      jde-mvn-default-compiler-target))
 
 (defun* jde-mvn-compiler-encoding (&optional (pom-node *pom-node*))
   "Returns the configured `encoding' option for javac."
   (jde-mvn-get-pom-plugin-configuration-property pom-node
-                                                 'maven-compiler-plugin 'encoding))
+                                                 'maven-compiler-plugin
+                                                 'encoding))
 
 (defun* jde-mvn-get-compile-classpath (&optional (pom-node *pom-node*))
   (jde-mvn-get-classpath pom-node 'jde-mvn:compile-classpath))

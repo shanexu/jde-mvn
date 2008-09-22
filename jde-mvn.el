@@ -71,6 +71,20 @@ funky on your system."
   :type 'string
   :group 'jde-mvn)
 
+(defcustom jde-mvn-default-compiler-source "1.3"
+  "*The default value for the 'source' parameter to the java
+compiler.  Should be left untouched unless the default of
+maven-compiler-plugin changes."
+  :type 'string
+  :group 'jde-mvn)
+
+(defcustom jde-mvn-default-compiler-target "1.1"
+  "*The default value for the 'target' parameter to the java
+compiler.  Should be left untouched unless the default of
+maven-compiler-plugin changes."
+  :type 'string
+  :group 'jde-mvn)
+
 (defun* jde-mvn-find-pom-file (&optional (pom-file-name jde-mvn-pom-file-name) noerror)
   "Find the next POM file upwards in the directory hierarchy.
 If NOERROR is NIL, an error will be signalled if no POM file
