@@ -18,7 +18,6 @@
 ;;
 
 (require 'cl)
-(require 'jde)
 (require 'xml)
 (require 'nxml-mode)
 

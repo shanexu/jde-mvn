@@ -47,7 +47,6 @@
 ;;
 
 (require 'cl)
-(require 'jde)
 
 (defgroup jde-mvn nil
   "JDE Maven 2"
@@ -104,5 +103,16 @@ could be found."
 
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)
+
+(jde-pi-register
+ (jde-plugin "mvn"
+	     :bsh-cp
+             (append (list
+		      (expand-file-name "target/jde-mvn-1.0-SNAPSHOT-jar-with-dependencies.jar" (jde-pi-get-plugin-dir "mvn")))
+                     (directory-files
+                      (expand-file-name "target"
+                                        (jde-pi-get-plugin-dir "mvn"))
+                      t "mini.jar$"))
+	     :menu-spec nil))
 
 (provide 'jde-mvn)
