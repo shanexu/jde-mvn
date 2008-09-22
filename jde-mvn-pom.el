@@ -382,7 +382,7 @@ will be called when that process exits."
     (search-forward "[dependency:tree]")
     ;; First line is this artifact, skip it
     (forward-line 2)
-    (let ((dependencies (loop while (looking-at "\\[INFO\\] [+|\\\\]")
+    (let ((dependencies (loop while (looking-at "\\[INFO\\] +[+|\\\\]")
                               collect (jde-mvn-pom-artifact-coordinates)
                               do (forward-line 1))))
       (loop for dependency in dependencies
