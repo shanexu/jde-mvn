@@ -65,6 +65,11 @@ funky on your system."
   :type 'string
   :group 'jde-mvn)
 
+(defcustom jde-mvn-use-server t
+  "*Whether to use the Maven server to call Maven."
+  :type 'boolean
+  :group 'jde-mvn)
+
 (defcustom jde-mvn-local-repository (expand-file-name "~/.m2/repository")
   "*The path to your local Maven repository."
   :type 'string
@@ -104,6 +109,27 @@ could be found."
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)
 
+(require 'jde-compile)
+
+(defclass jde-mvn-server-buffer (jde-compile-server-buffer) ()
+  "Mvn server buffer")
+
+;; Like the standard method, without the status-code crap
+(defmethod bsh-compilation-buffer-filter ((this jde-mvn-server-buffer)
+                                          proc string)
+  (with-current-buffer (oref this buffer)
+    (let ((win (get-buffer-window (oref this buffer))))
+      (save-excursion
+        (goto-char (point-max))
+        (insert string))
+      (when (not (featurep 'xemacs))
+        (when compilation-scroll-output
+          (save-selected-window
+            (when win
+              (select-window win)
+              (goto-char (point-max)))
+            (sit-for 0)))))))
+
 ;;; I hate doing this...
 (defun jde-jeval-cm* (java-expr &optional buffer-head finish-fcn)
   "Evaluate JAVA-EXPR and display the result in a compilation-mode buffer.
@@ -119,9 +145,9 @@ capabilities.
 The following example uses this function to invoke the javac compiler on
 a file in the current directory:
 
- (jde-bsh-compile-mode-eval \"jde.util.CompileServer.compile(\\\"Test.java\\\");\" 
+ (jde-jeval-cm* \"jde.util.CompileServer.compile(\\\"Test.java\\\");\" 
    \"Compile Test.java\" 'jde-compile-finish-kill-buffer)"
-  (let* ((buffer-obj (jde-compile-server-buffer "buffer"))
+  (let* ((buffer-obj (jde-mvn-server-buffer "buffer"))
 	 (native-buf (oref buffer-obj buffer))
 	 (bufwin (display-buffer native-buf)))
 
@@ -132,7 +158,7 @@ a file in the current directory:
     (when finish-fcn 
       (lexical-let ((finish finish-fcn))
         (setq compilation-finish-functions
-              (list (lambda (buf msg) 
+              (list (lambda (buf msg)
                       (funcall finish buf msg)
                       (setq compilation-finish-functions nil))))))
 

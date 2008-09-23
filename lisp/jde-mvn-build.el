@@ -76,25 +76,46 @@ pom-file from the minibuffer."
     (if cell
         (rplacd cell goals)
       (setq jde-mvn-build-default-goals-alist (acons pom-file goals jde-mvn-build-default-goals-alist))))
-  (let ((compile-command
-         (mapconcat #'identity
-                    `(,jde-mvn-command
-                      "-B" "-N" "-f" ,pom-file
-                      ,@(cond ((symbolp goals)
-                               (list (symbol-name goals)))
-                              ((consp goals)
-                               (mapcar #'symbol-name goals))
-                              (t (list goals)))
-                      ,@(when jde-mvn-build-read-args
-                          (list (read-from-minibuffer "Extra args: " nil nil nil jde-mvn-build-interactive-args-history))))
-                    " "))
-        process-connection-type)
-    (save-some-buffers (not compilation-ask-about-save) nil)
-    (setq compilation-finish-functions 
-          (list #'(lambda (buf msg)
-                    (run-hook-with-args 'jde-mvn-build-hook buf msg)
-                    (setq compilation-finish-functions nil))))
-    (compilation-start compile-command)))
+  (if jde-mvn-use-server
+      ;; Server mode!
+      (let ((goals (cond ((symbolp goals)
+                          (list (symbol-name goals)))
+                         ((consp goals)
+                          (mapcar #'symbol-name goals))
+                         (t (split-string goals)))))
+        ;; TODO: some way of specifying properties
+        (jde-jeval-cm* 
+         (concat "org.grumblesmurf.jdemvn.MvnServer.getInstance().run(\""
+                 pom-file
+                 "\", new String[] { "
+                 (mapconcat (lambda (g)
+                              (concat "\"" g "\""))
+                            goals
+                            ", ")
+                 " });")
+         "Mvn server output:"
+         #'(lambda (buf msg)
+             (run-hook-with-args 'jde-mvn-build-hook buf msg)
+             (setq compilation-finish-functions nil))))
+    (let ((compile-command
+           (mapconcat #'identity
+                      `(,jde-mvn-command
+                        "-B" "-N" "-f" ,pom-file
+                        ,@(cond ((symbolp goals)
+                                 (list (symbol-name goals)))
+                                ((consp goals)
+                                 (mapcar #'symbol-name goals))
+                                (t (list goals)))
+                        ,@(when jde-mvn-build-read-args
+                            (list (read-from-minibuffer "Extra args: " nil nil nil jde-mvn-build-interactive-args-history))))
+                      " "))
+          process-connection-type)
+      (save-some-buffers (not compilation-ask-about-save) nil)
+      (setq compilation-finish-functions 
+            (list #'(lambda (buf msg)
+                      (run-hook-with-args 'jde-mvn-build-hook buf msg)
+                      (setq compilation-finish-functions nil))))
+      (compilation-start compile-command))))
 
 (defun jde-mvn-build-find-failed-tests ()
   (interactive)
