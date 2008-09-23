@@ -1,6 +1,8 @@
 package org.grumblesmurf.jdemvn;
 
+import org.apache.maven.MavenTransferListener;
 import org.apache.maven.cli.CLIReportingUtils;
+import org.apache.maven.cli.ConsoleDownloadMonitor;
 import org.apache.maven.embedder.Configuration;
 import org.apache.maven.embedder.ConfigurationValidationResult;
 import org.apache.maven.embedder.DefaultConfiguration;
@@ -12,6 +14,7 @@ import org.apache.maven.errors.CoreErrorReporter;
 import org.apache.maven.errors.DefaultCoreErrorReporter;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.MavenExecutionRequest;
+import org.apache.maven.wagon.events.TransferEvent;
 
 import java.util.Arrays;
 
@@ -34,11 +37,17 @@ public class MvnServer
     private MavenEmbedder mavenEmbedder;
     private CoreErrorReporter errorReporter;
     private MavenEmbedderLogger logger;
+    private MavenTransferListener transferListener;
 
     protected MvnServer() {
         configuration = buildEmbedderConfiguration();
         errorReporter = new DefaultCoreErrorReporter();
         logger = new MavenEmbedderConsoleLogger();
+        transferListener = new ConsoleDownloadMonitor() {
+                public void transferError(TransferEvent event) {
+                    System.out.println(event.getException().getMessage());
+                }
+            }; 
         
         if (validateConfiguration()) {
             try {
@@ -89,8 +98,13 @@ public class MvnServer
         MavenExecutionRequest request = new DefaultMavenExecutionRequest()
             .setBaseDirectory(pomFile.getParentFile())
             .setGoals(Arrays.asList(goals))
+            .setTransferListener(transferListener)
             .setRecursive(recursive);
         
         mavenEmbedder.execute(request);
+    }
+
+    public static void main(String[] args) {
+        getInstance().run(args[0], false, "test");
     }
 }
