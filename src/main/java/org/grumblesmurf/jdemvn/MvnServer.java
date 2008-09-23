@@ -137,6 +137,10 @@ public class MvnServer
             
             MavenExecutionResult result = mavenEmbedder.execute(request);
             CLIReportingUtils.logResult(request, result, logger);
+            if (result.hasExceptions())
+                System.out.println("1");
+            else
+                System.out.println("0");
         }
     }
     
