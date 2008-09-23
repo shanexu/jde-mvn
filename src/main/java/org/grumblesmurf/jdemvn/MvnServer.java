@@ -18,6 +18,7 @@ import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.wagon.events.TransferEvent;
 
 import java.util.Arrays;
+import java.util.Properties;
 
 import java.io.File;
 
@@ -94,19 +95,52 @@ public class MvnServer
         return true;
     }
     
-    public void run(String pomFileName, boolean recursive, String... goals) {
-        File pomFile = new File(pomFileName);
-        MavenExecutionRequest request = new DefaultMavenExecutionRequest()
-            .setBaseDirectory(pomFile.getParentFile())
-            .setGoals(Arrays.asList(goals))
-            .setTransferListener(transferListener)
-            .setRecursive(recursive);
-        
-        MavenExecutionResult result = mavenEmbedder.execute(request);
-        CLIReportingUtils.logResult(request, result, logger);
+    public void run(String pomFileName, String... goals) {
+        run(pomFileName, false, goals).run();
     }
 
+    public RunDescriptor run(String pomFileName, boolean recursive, String... goals) {
+        RunDescriptor run = new RunDescriptor();
+        run.setPom(new File(pomFileName));
+        run.setRecursive(recursive);
+        run.setGoals(goals);
+        return run;
+    }
+
+    public class RunDescriptor 
+    {
+        File pom;
+        boolean recursive;
+        String[] goals;
+        Properties properties = new Properties();
+        
+        public void setPom(File pom) {
+            this.pom = pom;
+        }
+        public void setRecursive(boolean recursive) {
+            this.recursive = recursive;
+        }
+        public void setGoals(String[] goals) {
+            this.goals = goals;
+        }
+        public RunDescriptor addProperty(String key, String value) {
+            properties.put(key, value);
+            return this;
+        }
+        public void run() {
+            MavenExecutionRequest request = new DefaultMavenExecutionRequest()
+                .setBaseDirectory(pom.getParentFile())
+                .setGoals(Arrays.asList(goals))
+                .setTransferListener(transferListener)
+                .setRecursive(recursive)
+                .setProperties(properties);
+            
+            MavenExecutionResult result = mavenEmbedder.execute(request);
+            CLIReportingUtils.logResult(request, result, logger);
+        }
+    }
+    
     public static void main(String[] args) {
-        getInstance().run(args[0], false, "test");
+        getInstance().run(args[0], false, "test").addProperty("maven.test.skip", "true").run();
     }
 }
