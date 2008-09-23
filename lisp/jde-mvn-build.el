@@ -84,7 +84,7 @@ pom-file from the minibuffer."
                           (mapcar #'symbol-name goals))
                          (t (split-string goals)))))
         ;; TODO: some way of specifying properties
-        (jde-jeval-cm*
+        (jde-jeval-cm
          (concat "org.grumblesmurf.jdemvn.MvnServer.getInstance().run(\""
                  pom-file
                  "\", new String[] { "

@@ -109,94 +109,13 @@ could be found."
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)
 
-(require 'jde-compile)
-
-(defclass jde-mvn-server-buffer (jde-compile-server-buffer) ()
-  "Mvn server buffer")
-
-;; Like the standard method, without the status-code crap
-(defmethod bsh-compilation-buffer-filter ((this jde-mvn-server-buffer)
-                                          proc string)
-  (with-current-buffer (oref this buffer)
-    (let ((win (get-buffer-window (oref this buffer))))
-      (save-excursion
-        (goto-char (point-max))
-        (insert string))
-      (when (not (featurep 'xemacs))
-        (when compilation-scroll-output
-          (save-selected-window
-            (when win
-              (select-window win)
-              (goto-char (point-max)))
-            (sit-for 0)))))))
-
-;;; I hate doing this...
-(defun jde-jeval-cm* (java-expr &optional buffer-head finish-fcn)
-  "Evaluate JAVA-EXPR and display the result in a compilation-mode buffer.
-The optional argument BUFFER-HEAD specifies text to appear at the head of
-the compilation buffer. The optional argument FINISH-FCN specifies a
-function to be called when the compilation is finished. This function
-is intended to be used to invoke Java development utilities, such as 
-source code style checkers, that emit compiler-like error messages.
-Displaying the output in a compilation-mode buffer enables the user to
-use compilation-mode's error message navigation and hyperlinking 
-capabilities.
-
-The following example uses this function to invoke the javac compiler on
-a file in the current directory:
-
- (jde-jeval-cm* \"jde.util.CompileServer.compile(\\\"Test.java\\\");\" 
-   \"Compile Test.java\" 'jde-compile-finish-kill-buffer)"
-  (let* ((buffer-obj (jde-mvn-server-buffer "buffer"))
-	 (native-buf (oref buffer-obj buffer))
-	 (bufwin (display-buffer native-buf)))
-
-    (compilation-set-window-height bufwin)
-
-    (save-some-buffers (not compilation-ask-about-save) nil)
-
-    (when finish-fcn 
-      (lexical-let ((finish finish-fcn))
-        (setq compilation-finish-functions
-              (list (lambda (buf msg)
-                      (funcall finish buf msg)
-                      (setq compilation-finish-functions nil))))))
-
-    (unless (featurep 'xemacs)
-      (when compilation-process-setup-function
-        (funcall compilation-process-setup-function)))     
-
-    (save-excursion
-      (set-buffer native-buf)
-
-      (if buffer-head
-	  (insert buffer-head)
-	(insert java-expr))
-
-      (insert "\n")
-
-      (unless (jde-bsh-running-p)
-        (progn
-          (bsh-launch (oref 'jde-bsh the-bsh))
-          (bsh-eval (oref 'jde-bsh the-bsh) (jde-create-prj-values-str))))
-
-      (bsh-buffer-eval 
-       (oref 'jde-bsh the-bsh)
-       java-expr
-       buffer-obj)
-      
-      (set-buffer-modified-p nil)	 
-      (setq compilation-last-buffer native-buf))))
-
 (jde-pi-register
  (jde-plugin "mvn"
 	     :bsh-cp
-             (append (list
-		      (expand-file-name "target/jde-mvn-1.0-SNAPSHOT-jar-with-dependencies.jar" (jde-pi-get-plugin-dir "mvn")))
-                     (directory-files
-                      (expand-file-name "target"
-                                        (jde-pi-get-plugin-dir "mvn"))
-                      t "mini.jar$"))
-	     :menu-spec nil))
+             (directory-files (expand-file-name "java/lib"
+                                                (jde-pi-get-plugin-dir "mvn"))
+                              t "jar$")
+	     :menu-spec
+             (list (list "JDE-mvn" ["Build with Maven" jde-mvn-build :active t]))))
 
 (provide 'jde-mvn)
