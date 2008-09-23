@@ -14,6 +14,7 @@ import org.apache.maven.errors.CoreErrorReporter;
 import org.apache.maven.errors.DefaultCoreErrorReporter;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.MavenExecutionRequest;
+import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.wagon.events.TransferEvent;
 
 import java.util.Arrays;
@@ -101,7 +102,8 @@ public class MvnServer
             .setTransferListener(transferListener)
             .setRecursive(recursive);
         
-        mavenEmbedder.execute(request);
+        MavenExecutionResult result = mavenEmbedder.execute(request);
+        CLIReportingUtils.logResult(request, result, logger);
     }
 
     public static void main(String[] args) {
