@@ -296,7 +296,7 @@ repository."
      '(jde-project-name (jde-mvn-get-pom-property 'project.name "Unnamed project"
                                                   pom-node))
      '(jde-global-classpath (list* target-directory
-                                   (jde-mvn-get-compile-classpath pom-node)))
+                                   (jde-mvn-get-runtime-classpath pom-node)))
      '(jde-compile-option-classpath (list* target-directory (jde-mvn-get-compile-classpath)))
      '(jde-compile-option-directory target-directory)
      '(jde-compile-option-source (list (jde-mvn-compiler-source pom-node)))
