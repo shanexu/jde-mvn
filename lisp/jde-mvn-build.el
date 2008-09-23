@@ -84,7 +84,7 @@ pom-file from the minibuffer."
                           (mapcar #'symbol-name goals))
                          (t (split-string goals)))))
         ;; TODO: some way of specifying properties
-        (jde-jeval-cm* 
+        (jde-jeval-cm*
          (concat "org.grumblesmurf.jdemvn.MvnServer.getInstance().run(\""
                  pom-file
                  "\", new String[] { "
@@ -95,8 +95,7 @@ pom-file from the minibuffer."
                  " });")
          "Mvn server output:"
          #'(lambda (buf msg)
-             (run-hook-with-args 'jde-mvn-build-hook buf msg)
-             (setq compilation-finish-functions nil))))
+             (run-hook-with-args 'jde-mvn-build-hook buf msg))))
     (let ((compile-command
            (mapconcat #'identity
                       `(,jde-mvn-command
