@@ -112,22 +112,23 @@ could be found."
                                         (file-name-directory pom)))))
         pom))))
 
-(defun jde-mvn-call-mvn-server (pom-file goals after-fn &rest properties)
+(defun jde-mvn-call-mvn-server (visible-p
+                                pom-file goals after-fn &rest properties)
   (when properties
     (assert (evenp (length properties)) nil "PROPERTIES must be NIL or an even-length list"))
   (flet ((quotify (s)
                   (concat "\"" s "\"")))
-    (let ((goals (concat "new String[] { "
-                         (mapconcat #'quotify
-                                    (cond ((symbolp goals)
-                                           (list (symbol-name goals)))
-                                          ((consp goals)
-                                           (mapcar #'symbol-name goals))
-                                          (t (split-string goals)))
-                                    ", ")
-                         " }")))
-      (jde-jeval-cm
-       (concat jde-mvn-server-class ".getInstance().run("
+    (let* ((goals (concat "new String[] { "
+                          (mapconcat #'quotify
+                                     (cond ((symbolp goals)
+                                            (list (symbol-name goals)))
+                                           ((consp goals)
+                                            (mapcar #'symbol-name goals))
+                                           (t (split-string goals)))
+                                     ", ")
+                          " }"))
+           (java-expr
+            (concat jde-mvn-server-class ".getInstance().run("
                (quotify pom-file)
                ", false, "
                goals
@@ -146,9 +147,31 @@ could be found."
                                                         "false")
                                                        (t v))))))
                  ")")
-               ".run();")
-       "Mvn server output:"
-       after-fn))))
+               ".run();")))
+      (if visible-p
+          (jde-jeval-cm java-expr "Mvn server output:" after-fn)
+        ;; Booyah
+        (let* ((buffer-obj (bsh-buffer "buffer"))
+               (native-buffer (oref buffer-obj buffer)))
+          (with-current-buffer native-buffer
+            (erase-buffer))
+          (oset buffer-obj filter
+                (lexical-let ((native-buffer native-buffer))
+                  (lambda (proc string)
+                    (with-current-buffer native-buffer
+                      (goto-char (point-max))
+                      (insert string)))))
+          (save-excursion
+            (set-buffer native-buffer)
+            (insert "Mvn server output:\n")
+            (unless (jde-bsh-running-p)
+              (bsh-launch (oref 'jde-bsh the-bsh))
+              (bsh-eval (oref 'jde-bsh the-bsh) (jde-create-prj-values-str)))
+            (bsh-buffer-eval (oref 'jde-bsh the-bsh)
+                             java-expr
+                             buffer-obj)
+            (set-buffer-modified-p nil)
+            (funcall after-fn native-buffer "Finished")))))))
 
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)

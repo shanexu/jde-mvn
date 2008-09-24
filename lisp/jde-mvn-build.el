@@ -71,8 +71,8 @@ from the minibuffer."
       (setq jde-mvn-build-default-goals-alist (acons pom-file goals jde-mvn-build-default-goals-alist))))
   (if jde-mvn-use-server
       ;; Server mode!
-      (jde-mvn-call-mvn-server
-       pom-file goals
+      (jde-mvn-call-mvn-server 
+       t pom-file goals
        #'(lambda (buf msg)
            (run-hook-with-args 'jde-mvn-build-hook buf msg))
        ;; TODO: properties go here
