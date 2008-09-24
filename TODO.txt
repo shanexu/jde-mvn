@@ -1,0 +1,16 @@
+TODOS
+--------------------
+* Use Nexus in jde-mvn-pom-add-dependency if available
+
+* Allow (interactive) build property specification in jde-mvn-build
+
+* Somehow handle src/test and target/test-classes - difficult!
+
+* Somehow handle test failures
+
+* Would it be nice to have a run-this-class-as-junit-test thingy?
+
+* Maybe distribute maven-v4_0_0.rnc to ease POM file editing?
+
+* Some way of triggering recursive builds (currently all builds are
+  non-recursive, but the server allows both)
