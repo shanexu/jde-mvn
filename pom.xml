@@ -42,24 +42,16 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>using-snapshots</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <repositories>
-        <repository>
-          <id>public-snapshots</id>
-          <url>http://public-snapshots/</url>
-          <snapshots>
-            <enabled>true</enabled>
-          </snapshots>
-          <releases>
-            <enabled>false</enabled>
-          </releases>
-        </repository>
-      </repositories>
-    </profile>
-  </profiles>
+  <repositories>
+    <repository>
+      <id>sonatype.maven.snapshots</id>
+      <url>http://repository.sonatype.org/content/repositories/maven.snapshots/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+    </repository>
+  </repositories>
 </project>
