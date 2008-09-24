@@ -243,27 +243,24 @@ Examples:
 
  (jde-mvn-pom-call-maven pom-file '(install \"site\") :maven.test.skip t)"
   (unless (consp goals) (setq goals (list goals)))
-  (let ((extra-args
-         (append
-          (mapcar #'(lambda (e)
-                      (cond ((symbolp e) (symbol-name e))
-                            (t e)))
-                  goals)
-          (jde-mvn-make-maven-arguments properties))))
+  (let* ((extra-args
+          (append
+           (mapcar #'(lambda (e)
+                       (cond ((symbolp e) (symbol-name e))
+                             (t e)))
+                   goals)
+           (jde-mvn-make-maven-arguments properties)))
+         (command-args (list* jde-mvn-command  "-B" "-N" "-f"
+                              pom-file extra-args))
+         (command-string (mapconcat #'identity command-args " ")))
     (with-current-buffer *jde-mvn-output-buffer*
       (erase-buffer)
-      (insert (mapconcat #'identity
-                         (list* jde-mvn-command "-B" "-N" "-f"
-                                pom-file extra-args)
-                         " ")
-              "\n"))
+      (insert command-string "\n"))
     (let ((default-directory (file-name-directory pom-file)))
-      (apply #'message "Calling %s %s..." jde-mvn-command goals)
+      (message "Calling %s..." command-string)
       (apply #'start-process "Maven"
-             *jde-mvn-output-buffer* jde-mvn-command
-             "-B" "-N"
-             "-f" pom-file
-             extra-args))))
+             *jde-mvn-output-buffer*
+             command-args))))
 
 (defun* jde-mvn-prompt-for-pom-file (&optional (prompt "POM file (default %s): "))
   "Prompt for a file, defaulting to the return of `jde-mvn-find-pom-file'."
@@ -318,52 +315,29 @@ parsed POM-FILE."
 (put 'with-pom 'lisp-indent-function 1)
 
 ;;; Helper for jde-mvn-pom-call-with-pom
-(defun jde-mvn-pom-parse-pom-and-call (pom-file closure)
-  ;; Lexical-let, otherwise we don't close properly over the variables
-  ;; and the process sentinel bombs out with unbound variables
-  (lexical-let ((pom-file pom-file)
-                (closure closure))
-    (let ((process (jde-mvn-pom-call-maven pom-file
-                                           '(help:effective-pom
-                                             dependency:tree dependency:list)
-                                           :outputAbsoluteArtifactFilename t)))
-      (set-process-sentinel
-       process
-       (lambda (process event)
-         (when (memq (process-status process) '(signal exit))
-           ;; OK, process is dead
-           (if (or (eq (process-status process) 'signal)
-                   (/= (process-exit-status process) 0))
-               (progn
-                 (when (process-buffer process)
-                   (with-current-buffer (process-buffer process)
-                     (goto-char (point-max)))
-                   (display-buffer (process-buffer process) t))
-                 (message "%s exited abnormally" jde-mvn-command))
-             ;; Normal exit
-             (let ((pom (jde-mvn-pom-parse-pom-from-buffer *jde-mvn-output-buffer*)))
-               (if (null pom)
-                   (progn
-                     (display-buffer *jde-mvn-output-buffer* t)
-                     ;; This won't actually do anything other than
-                     ;; print to *Messages*, but allows me to debug if
-                     ;; I need to
-                     (error "Failed to parse effective POM; the contents of the buffer %s might help diagnose" (buffer-name *jde-mvn-output-buffer*)))
-                 (let ((classpaths
-                        (jde-mvn-pom-parse-dependency-tree-from-buffer
-                         *jde-mvn-output-buffer*
-                         (jde-mvn-pom-parse-dependency-list-from-buffer *jde-mvn-output-buffer*))))
-                   ;; Push the classpaths onto the POM tree
-                   (mapc #'(lambda (cpspec)
-                             (push cpspec (nth 1 pom)))
-                         classpaths))
-                 (puthash pom-file
-                          (cons (file-last-modified-time pom-file)
-                                pom)
-                          *jde-mvn-pom-cache*)
-                 (funcall closure pom)
-                 (message "POM parsing done.")))))))
-      (message "Parsing POM and dependencies in the background..."))))
+(defun jde-mvn-pom-parse-pom-and-call (buffer closure pom-file)
+  (let ((pom (jde-mvn-pom-parse-pom-from-buffer buffer)))
+    (if (null pom)
+        (progn
+          (display-buffer buffer t)
+          ;; This won't actually do anything other than
+          ;; print to *Messages*, but allows me to debug if
+          ;; I need to
+          (error "Failed to parse effective POM; the contents of the buffer %s might help diagnose" (buffer-name buffer)))
+      (let ((classpaths
+             (jde-mvn-pom-parse-dependency-tree-from-buffer
+              buffer
+              (jde-mvn-pom-parse-dependency-list-from-buffer buffer))))
+        ;; Push the classpaths onto the POM tree
+        (mapc #'(lambda (cpspec)
+                  (push cpspec (nth 1 pom)))
+              classpaths))
+      (puthash pom-file
+               (cons (file-last-modified-time pom-file)
+                     pom)
+               *jde-mvn-pom-cache*)
+      (funcall closure pom)
+      (message "POM parsing done."))))
 
 (defun* jde-mvn-pom-call-with-pom (closure &optional (pom-file (jde-mvn-find-pom-file)))
   "Calls CLOSURE with one argument: The parsed POM from POM-FILE,
@@ -377,7 +351,34 @@ will be called when that process exits."
   (let ((cached-pom (jde-mvn-get-pom-from-cache pom-file)))
     (if cached-pom
         (funcall closure cached-pom)
-      (jde-mvn-pom-parse-pom-and-call pom-file closure))))
+      (let ((goals '(help:effective-pom dependency:tree dependency:list))
+            (properties '(:outputAbsoluteArtifactFilename t)))
+        (if jde-mvn-use-server
+            ;; TODO
+            'foo
+          ;; not server-mode
+          (message "Parsing POM in the background...")
+          (let ((process (apply 'jde-mvn-pom-call-maven
+                                pom-file goals properties)))
+            (set-process-sentinel
+             process
+             (lexical-let ((closure closure)
+                           (pom-file pom-file))
+               (lambda (process event)
+                 (when (memq (process-status process) '(signal exit))
+                   ;; OK, process is dead
+                   (if (or (eq (process-status process) 'signal)
+                           (/= (process-exit-status process) 0))
+                       (progn
+                         (when (process-buffer process)
+                           (with-current-buffer (process-buffer process)
+                             (goto-char (point-max)))
+                           (display-buffer (process-buffer process) t))
+                         (message "%s exited abnormally" jde-mvn-command))
+                     ;; Normal exit
+                     (jde-mvn-pom-parse-pom-and-call *jde-mvn-output-buffer*
+                                                     closure
+                                                     pom-file))))))))))))
 
 (defun jde-mvn-pom-parse-dependency-tree-from-buffer (buffer artifactmap)
   "Parses the output of mvn dependency:tree."
