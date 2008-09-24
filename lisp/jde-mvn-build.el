@@ -39,6 +39,7 @@ describing how the compilation finished"
   (or (cdr (assoc-string pom-file jde-mvn-build-default-goals-alist))
       jde-mvn-build-default-goals))
 
+;; TODO: some way of specifying properties
 (defun* jde-mvn-build
     (&optional goals (pom-file (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
   "Run the mvn program specified by `pom-maven-command' on the
@@ -70,24 +71,12 @@ from the minibuffer."
       (setq jde-mvn-build-default-goals-alist (acons pom-file goals jde-mvn-build-default-goals-alist))))
   (if jde-mvn-use-server
       ;; Server mode!
-      (let ((goals (cond ((symbolp goals)
-                          (list (symbol-name goals)))
-                         ((consp goals)
-                          (mapcar #'symbol-name goals))
-                         (t (split-string goals)))))
-        ;; TODO: some way of specifying properties
-        (jde-jeval-cm
-         (concat "org.grumblesmurf.jdemvn.MvnServer.getInstance().run(\""
-                 pom-file
-                 "\", new String[] { "
-                 (mapconcat (lambda (g)
-                              (concat "\"" g "\""))
-                            goals
-                            ", ")
-                 " });")
-         "Mvn server output:"
-         #'(lambda (buf msg)
-             (run-hook-with-args 'jde-mvn-build-hook buf msg))))
+      (jde-mvn-call-mvn-server
+       pom-file goals
+       #'(lambda (buf msg)
+           (run-hook-with-args 'jde-mvn-build-hook buf msg))
+       ;; Properties go here
+       )
     (let ((compile-command
            (mapconcat #'identity
                       `(,jde-mvn-command

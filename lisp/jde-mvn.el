@@ -89,6 +89,12 @@ maven-compiler-plugin changes."
   :type 'string
   :group 'jde-mvn)
 
+(defcustom jde-mvn-server-class "org.grumblesmurf.jdemvn.MvnServer"
+  "*The name of the maven server class.  Don't touch unless you
+know what you're doing."
+  :type 'string
+  :group 'jde-mvn)
+
 (defun* jde-mvn-find-pom-file (&optional (pom-file-name jde-mvn-pom-file-name) noerror)
   "Find the next POM file upwards in the directory hierarchy.
 If NOERROR is NIL, an error will be signalled if no POM file
@@ -105,6 +111,44 @@ could be found."
             (setq pom (expand-file-name (concat "../" (file-name-nondirectory pom))
                                         (file-name-directory pom)))))
         pom))))
+
+(defun jde-mvn-call-mvn-server (pom-file goals after-fn &rest properties)
+  (when properties
+    (assert (evenp (length properties)) nil "PROPERTIES must be NIL or an even-length list"))
+  (flet ((quotify (s)
+                  (concat "\"" g "\"")))
+    (let ((goals (concat "new String[] { "
+                         (mapconcat #'quotify
+                                    (cond ((symbolp goals)
+                                           (list (symbol-name goals)))
+                                          ((consp goals)
+                                           (mapcar #'symbol-name goals))
+                                          (t (split-string goals)))
+                                    ", ")
+                         " }")))
+      (jde-jeval-cm
+       (concat jde-mvn-server-class ".getInstance().run("
+               (quotify pom-file)
+               ", false, "
+               goals
+               (if properties
+                   (apply #'concat ")"
+                          (loop for (k v) on properties by #'cddr
+                                collect
+                                (format ".addProperty(%s, %s)"
+                                        (quotify (if (keywordp k)
+                                                     (substring (symbol-name k)
+                                                                1)
+                                                   k))
+                                        (quotify (cond ((eql v t)
+                                                        "true")
+                                                       ((null v)
+                                                        "false")
+                                                       (t v))))))
+                 "")
+               ").run();")
+       "Mvn server output:"
+       after-fn))))
 
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)
