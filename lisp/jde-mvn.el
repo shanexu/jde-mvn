@@ -116,7 +116,7 @@ could be found."
   (when properties
     (assert (evenp (length properties)) nil "PROPERTIES must be NIL or an even-length list"))
   (flet ((quotify (s)
-                  (concat "\"" g "\"")))
+                  (concat "\"" s "\"")))
     (let ((goals (concat "new String[] { "
                          (mapconcat #'quotify
                                     (cond ((symbolp goals)
@@ -145,8 +145,8 @@ could be found."
                                                        ((null v)
                                                         "false")
                                                        (t v))))))
-                 "")
-               ").run();")
+                 ")")
+               ".run();")
        "Mvn server output:"
        after-fn))))
 

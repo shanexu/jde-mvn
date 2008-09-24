@@ -75,7 +75,7 @@ from the minibuffer."
        pom-file goals
        #'(lambda (buf msg)
            (run-hook-with-args 'jde-mvn-build-hook buf msg))
-       ;; Properties go here
+       ;; TODO: properties go here
        )
     (let ((compile-command
            (mapconcat #'identity

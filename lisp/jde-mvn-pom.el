@@ -351,19 +351,23 @@ will be called when that process exits."
   (let ((cached-pom (jde-mvn-get-pom-from-cache pom-file)))
     (if cached-pom
         (funcall closure cached-pom)
-      (let ((goals '(help:effective-pom dependency:tree dependency:list))
-            (properties '(:outputAbsoluteArtifactFilename t)))
-        (if jde-mvn-use-server
-            ;; TODO
-            'foo
-          ;; not server-mode
-          (message "Parsing POM in the background...")
-          (let ((process (apply 'jde-mvn-pom-call-maven
-                                pom-file goals properties)))
-            (set-process-sentinel
-             process
-             (lexical-let ((closure closure)
-                           (pom-file pom-file))
+      (lexical-let ((closure closure)
+                    (pom-file pom-file))
+        (let ((goals '(help:effective-pom dependency:tree dependency:list))
+              (properties '(:outputAbsoluteArtifactFilename t)))
+          (if jde-mvn-use-server
+              (apply #'jde-mvn-call-mvn-server pom-file goals
+                     #'(lambda (buf msg)
+                         (jde-mvn-pom-parse-pom-and-call *jde-mvn-output-buffer*
+                                                         closure
+                                                         pom-file))
+                     properties)
+            ;; not server-mode
+            (message "Parsing POM in the background...")
+            (let ((process (apply 'jde-mvn-pom-call-maven
+                                  pom-file goals properties)))
+              (set-process-sentinel
+               process
                (lambda (process event)
                  (when (memq (process-status process) '(signal exit))
                    ;; OK, process is dead
