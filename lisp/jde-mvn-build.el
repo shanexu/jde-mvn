@@ -16,13 +16,6 @@
 ;; PERFORMANCE OF THIS SOFTWARE.
 ;;
 
-(defcustom jde-mvn-build-read-args nil
-  "*Specify whether to prompt for additional arguments to pass to
-mvn.  If non-nil, the jde-mvn-build command prompts you for the
-additional arguments."
-  :group 'jde-mvn
-  :type 'boolean)
-
 (defcustom jde-mvn-build-hook '(jde-compile-finish-kill-buffer
                                 jde-compile-finish-refresh-speedbar
                                 jde-compile-finish-update-class-info)
@@ -49,11 +42,10 @@ describing how the compilation finished"
 (defun* jde-mvn-build
     (&optional goals (pom-file (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
   "Run the mvn program specified by `pom-maven-command' on the
-given POM, triggering the given goals.  If `jde-mvn-build-read-args' is
-non-nil, read additional arguments for mvn from the minibuffer.
-If given a prefix arg, read goals from the minibuffer.  If given
-two prefix args (e.g. C-u C-u jde-mvn-build, read both goals and
-pom-file from the minibuffer."
+given POM, triggering the given goals. If given a prefix arg,
+read goals from the minibuffer.  If given two prefix
+args (e.g. C-u C-u jde-mvn-build, read both goals and pom-file
+from the minibuffer."
   (interactive
    (let ((prompt-for (cond ((null current-prefix-arg) nil)
                            ((and (consp current-prefix-arg)
@@ -104,9 +96,7 @@ pom-file from the minibuffer."
                                  (list (symbol-name goals)))
                                 ((consp goals)
                                  (mapcar #'symbol-name goals))
-                                (t (list goals)))
-                        ,@(when jde-mvn-build-read-args
-                            (list (read-from-minibuffer "Extra args: " nil nil nil jde-mvn-build-interactive-args-history))))
+                                (t (list goals))))
                       " "))
           process-connection-type)
       (save-some-buffers (not compilation-ask-about-save) nil)
