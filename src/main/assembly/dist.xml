@@ -19,6 +19,8 @@
   <files>
     <file>
       <source>LICENSE.txt</source>
+    </file>
+    <file>
       <source>README.txt</source>
     </file>
   </files>
