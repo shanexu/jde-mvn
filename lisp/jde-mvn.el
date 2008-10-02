@@ -156,11 +156,17 @@ could be found."
           (with-current-buffer native-buffer
             (erase-buffer))
           (oset buffer-obj filter
-                (lexical-let ((native-buffer native-buffer))
+                (lexical-let ((native-buffer native-buffer)
+                              (after-fn after-fn))
                   (lambda (proc string)
                     (with-current-buffer native-buffer
                       (goto-char (point-max))
-                      (insert string)))))
+                      (let ((end (string-match ".*bsh % " string)))
+                        (when end
+                          (setq string (substring string 0 end)))
+                        (insert string)
+                        (when end
+                          (funcall after-fn native-buffer "Finished")))))))
           (save-excursion
             (set-buffer native-buffer)
             (insert "Mvn server output:\n")
@@ -170,8 +176,7 @@ could be found."
             (bsh-buffer-eval (oref 'jde-bsh the-bsh)
                              java-expr
                              buffer-obj)
-            (set-buffer-modified-p nil)
-            (funcall after-fn native-buffer "Finished")))))))
+            (set-buffer-modified-p nil)))))))
 
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)

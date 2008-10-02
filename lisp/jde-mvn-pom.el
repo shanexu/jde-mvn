@@ -316,28 +316,31 @@ parsed POM-FILE."
 
 ;;; Helper for jde-mvn-pom-call-with-pom
 (defun jde-mvn-pom-parse-pom-and-call (buffer closure pom-file)
-  (let ((pom (jde-mvn-pom-parse-pom-from-buffer buffer)))
-    (if (null pom)
-        (progn
-          (display-buffer buffer t)
-          ;; This won't actually do anything other than
-          ;; print to *Messages*, but allows me to debug if
-          ;; I need to
-          (error "Failed to parse effective POM; the contents of the buffer %s might help diagnose" (buffer-name buffer)))
-      (let ((classpaths
-             (jde-mvn-pom-parse-dependency-tree-from-buffer
-              buffer
-              (jde-mvn-pom-parse-dependency-list-from-buffer buffer))))
-        ;; Push the classpaths onto the POM tree
-        (mapc #'(lambda (cpspec)
-                  (push cpspec (nth 1 pom)))
-              classpaths))
-      (puthash pom-file
-               (cons (file-last-modified-time pom-file)
-                     pom)
-               *jde-mvn-pom-cache*)
-      (funcall closure pom)
-      (message "POM parsing done."))))
+  (condition-case error
+      (let ((pom (jde-mvn-pom-parse-pom-from-buffer buffer)))
+        (if (null pom)
+            (progn
+              (display-buffer buffer t)
+              ;; This won't actually do anything other than
+              ;; print to *Messages*, but allows me to debug if
+              ;; I need to
+              (error "Failed to parse effective POM; the contents of the buffer %s might help diagnose" (buffer-name buffer)))
+          (let ((classpaths
+                 (jde-mvn-pom-parse-dependency-tree-from-buffer
+                  buffer
+                  (jde-mvn-pom-parse-dependency-list-from-buffer buffer))))
+            ;; Push the classpaths onto the POM tree
+            (mapc #'(lambda (cpspec)
+                      (push cpspec (nth 1 pom)))
+                  classpaths))
+          (puthash pom-file
+                   (cons (file-last-modified-time pom-file)
+                         pom)
+                   *jde-mvn-pom-cache*)
+          (funcall closure pom)
+          (message "POM parsing done.")))
+    (error (display-buffer buffer t)
+           (funcall #'signal (car error) (cdr error)))))
 
 (defun* jde-mvn-pom-call-with-pom (closure &optional (pom-file (jde-mvn-find-pom-file)))
   "Calls CLOSURE with one argument: The parsed POM from POM-FILE,
@@ -356,9 +359,9 @@ will be called when that process exits."
         (let ((goals '(help:effective-pom dependency:tree dependency:list))
               (properties '(:outputAbsoluteArtifactFilename t)))
           (if jde-mvn-use-server
-              (apply #'jde-mvn-call-mvn-server t pom-file goals
+              (apply #'jde-mvn-call-mvn-server nil pom-file goals
                      #'(lambda (buf msg)
-                         (jde-mvn-pom-parse-pom-and-call *jde-mvn-output-buffer*
+                         (jde-mvn-pom-parse-pom-and-call buf
                                                          closure
                                                          pom-file))
                      properties)
