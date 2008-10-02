@@ -457,10 +457,10 @@ will be called when that process exits."
 (defun jde-mvn-pom-parse-pom-from-buffer (buffer)
   (with-current-buffer buffer
     (goto-char (point-max))
-    (re-search-backward "</project>")
+    (search-backward "</project>")
     (end-of-line)
     (let ((end (point)))
-      (car (xml-parse-region (re-search-backward "<project") end)))))
+      (car (xml-parse-region (search-backward "<project") end)))))
 
 (defun jde-mvn-pom-find-all-directories (dir)
   (let ((dirs (remove-if-not #'file-directory-p
