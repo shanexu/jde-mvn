@@ -95,6 +95,11 @@ know what you're doing."
   :type 'string
   :group 'jde-mvn)
 
+(defcustom jde-mvn-pom-visible nil
+  "*Whether the pom parsing mvn invocation should be visible."
+  :type 'boolean
+  :group 'jde-mvn)
+
 (defun* jde-mvn-find-pom-file (&optional (pom-file-name jde-mvn-pom-file-name) noerror)
   "Find the next POM file upwards in the directory hierarchy.
 If NOERROR is NIL, an error will be signalled if no POM file

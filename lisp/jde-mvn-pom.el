@@ -359,7 +359,8 @@ will be called when that process exits."
         (let ((goals '(help:effective-pom dependency:tree dependency:list))
               (properties '(:outputAbsoluteArtifactFilename t)))
           (if jde-mvn-use-server
-              (apply #'jde-mvn-call-mvn-server nil pom-file goals
+              (apply #'jde-mvn-call-mvn-server jde-mvn-pom-visible
+                     pom-file goals
                      #'(lambda (buf msg)
                          (jde-mvn-pom-parse-pom-and-call buf
                                                          closure
