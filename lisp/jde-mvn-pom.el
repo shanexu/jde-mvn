@@ -423,8 +423,7 @@ will be called when that process exits."
     (split-string 
      (buffer-substring-no-properties
       point
-      (or (and (search-forward " " eol t) (match-beginning 0))
-          eol))
+      (progn (skip-chars-forward "^ " eol) (point)))
      separator)))
 
 (defun jde-mvn-pom-artifact-coordinates ()
