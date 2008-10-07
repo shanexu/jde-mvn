@@ -6,6 +6,10 @@
   <version>1.0-SNAPSHOT</version>
   <name>JDE-Maven2 integration</name>
   <inceptionYear>2008</inceptionYear>
+  <scm>
+    <connection>scm:hg:http://bitbucket.org/espenhw/jde-mvn/</connection>
+    <developerConnection>scm:hg:https://bitbucket.org/espenhw/jde-mvn/</developerConnection>
+  </scm>
   <dependencies>
     <dependency>
       <groupId>org.apache.maven</groupId>
