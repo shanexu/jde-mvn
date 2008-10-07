@@ -289,6 +289,9 @@ project's dependencies if the source exists in your local
 repository."
   (let ((target-directory (jde-mvn-get-pom-property 'project.build.outputDirectory
                                                     nil pom-node)))
+    (when (jde-mvn-compiler-encoding pom-node)
+      (jde-set-variables 
+       '(jde-compile-option-encoding (jde-mvn-compiler-encoding pom-node))))
     (jde-set-variables
      '(jde-project-name (jde-mvn-get-pom-property 'project.name "Unnamed project"
                                                   pom-node))
@@ -298,7 +301,6 @@ repository."
      '(jde-compile-option-directory target-directory)
      '(jde-compile-option-source (list (jde-mvn-compiler-source pom-node)))
      '(jde-compile-option-target (list (jde-mvn-compiler-target pom-node)))
-     '(jde-compile-option-encoding (jde-mvn-compiler-encoding pom-node))
      '(jde-sourcepath (jde-mvn-make-sourcepath pom-node include-dependency-sources))
      '(jde-built-class-path (list target-directory)))))
 
