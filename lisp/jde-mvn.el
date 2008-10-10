@@ -117,6 +117,13 @@ could be found."
                                         (file-name-directory pom)))))
         pom))))
 
+(defvar *jde-mvn-server-running* nil)
+
+(defun jde-mvn-wait-for-server ()
+  (message "Waiting for Maven...")
+  (while *jde-mvn-server-running*
+    (sleep-for 0 10)))
+
 (defun jde-mvn-call-mvn-server (visible-p
                                 pom-file goals after-fn &rest properties)
   (when properties
@@ -134,54 +141,62 @@ could be found."
                           " }"))
            (java-expr
             (concat jde-mvn-server-class ".getInstance().run("
-               (quotify pom-file)
-               ", false, "
-               goals
-               (if properties
-                   (apply #'concat ")"
-                          (loop for (k v) on properties by #'cddr
-                                collect
-                                (format ".addProperty(%s, %s)"
-                                        (quotify (if (keywordp k)
-                                                     (substring (symbol-name k)
-                                                                1)
-                                                   k))
-                                        (quotify (cond ((eql v t)
-                                                        "true")
-                                                       ((null v)
-                                                        "false")
-                                                       (t v))))))
-                 ")")
-               ".run();")))
-      (if visible-p
-          (jde-jeval-cm java-expr "Mvn server output:" after-fn)
-        ;; Booyah
-        (let* ((buffer-obj (bsh-buffer "buffer"))
-               (native-buffer (oref buffer-obj buffer)))
-          (with-current-buffer native-buffer
-            (erase-buffer))
-          (oset buffer-obj filter
-                (lexical-let ((native-buffer native-buffer)
-                              (after-fn after-fn))
-                  (lambda (proc string)
-                    (with-current-buffer native-buffer
-                      (goto-char (point-max))
-                      (let ((end (string-match ".*bsh % " string)))
-                        (when end
-                          (setq string (substring string 0 end)))
-                        (insert string)
-                        (when end
-                          (funcall after-fn native-buffer "Finished")))))))
-          (save-excursion
-            (set-buffer native-buffer)
-            (insert "Mvn server output:\n")
-            (unless (jde-bsh-running-p)
-              (bsh-launch (oref 'jde-bsh the-bsh))
-              (bsh-eval (oref 'jde-bsh the-bsh) (jde-create-prj-values-str)))
-            (bsh-buffer-eval (oref 'jde-bsh the-bsh)
-                             java-expr
-                             buffer-obj)
-            (set-buffer-modified-p nil)))))))
+                    (quotify pom-file)
+                    ", false, "
+                    goals
+                    (if properties
+                        (apply #'concat ")"
+                               (loop for (k v) on properties by #'cddr
+                                     collect
+                                     (format ".addProperty(%s, %s)"
+                                             (quotify (if (keywordp k)
+                                                          (substring (symbol-name k)
+                                                                     1)
+                                                        k))
+                                             (quotify (cond ((eql v t)
+                                                             "true")
+                                                            ((null v)
+                                                             "false")
+                                                            (t v))))))
+                      ")")
+                    ".run();")))
+      (unless (jde-bsh-running-p)
+        (bsh-launch (oref 'jde-bsh the-bsh))
+        (bsh-eval (oref 'jde-bsh the-bsh) (jde-create-prj-values-str)))
+      (setq *jde-mvn-server-running* t)
+      (lexical-let ((after-fn after-fn))
+        (if visible-p
+            (jde-jeval-cm java-expr "Mvn server output:"
+                          #'(lambda (buf status)
+                              (unwind-protect 
+                                  (funcall after-fn buf status)
+                                (set *jde-mvn-server-running* nil))))
+          ;; Booyah
+          (let* ((buffer-obj (bsh-buffer "buffer"))
+                 (native-buffer (oref buffer-obj buffer)))
+            (with-current-buffer native-buffer
+              (erase-buffer))
+            (oset buffer-obj filter
+                  (lexical-let ((native-buffer native-buffer)
+                                (after-fn after-fn))
+                    (lambda (proc string)
+                      (with-current-buffer native-buffer
+                        (goto-char (point-max))
+                        (let ((end (string-match ".*bsh % " string)))
+                          (when end
+                            (setq string (substring string 0 end)))
+                          (insert string)
+                          (when end
+                            (unwind-protect 
+                                (funcall after-fn native-buffer "Finished")
+                              (setq *jde-mvn-server-running* nil))))))))
+            (save-excursion
+              (set-buffer native-buffer)
+              (insert "Mvn server output:\n")
+              (bsh-buffer-eval (oref 'jde-bsh the-bsh)
+                               java-expr
+                               buffer-obj)
+              (set-buffer-modified-p nil))))))))
 
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)

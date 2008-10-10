@@ -1,5 +1,5 @@
-;;; jde-mvn-pom.el --- Tools for using attributes from a Maven POM in
-;;; JDE project files
+;;;; jde-mvn-pom.el --- Tools for using attributes from a Maven POM in
+;;;; JDE project files
 ;;
 ;; Copyright (c) 2007-2008 Espen Wiborg <espenhw@grumblesmurf.org>
 ;;
@@ -359,9 +359,7 @@ will be called when that process exits."
     (cond (cached-pom
            (funcall closure cached-pom))
           ((member pom-file *jde-mvn-poms-in-parsing*)
-           (display-warning 'jde-mvn
-                            (format "Duplicate parse attempt detected for %s"
-                                    pom-file)))
+           (message "Ignoring duplicate parse request for %s." pom-file))
           (t
            (push pom-file *jde-mvn-poms-in-parsing*)
            (lexical-let ((closure closure)
@@ -369,16 +367,19 @@ will be called when that process exits."
              (let ((goals '(help:effective-pom dependency:tree dependency:list))
                    (properties '(:outputAbsoluteArtifactFilename t)))
                (if jde-mvn-use-server
-                   (apply #'jde-mvn-call-mvn-server jde-mvn-pom-visible
-                          pom-file goals
-                          #'(lambda (buf msg)
-                              (jde-mvn-pom-parse-pom-and-call buf
-                                                              closure
-                                                              pom-file)
-                              (setq *jde-mvn-poms-in-parsing*
-                                    (delete pom-file
-                                            *jde-mvn-poms-in-parsing*)))
-                          properties)
+                   (progn
+                     (apply #'jde-mvn-call-mvn-server jde-mvn-pom-visible
+                            pom-file goals
+                            #'(lambda (buf msg)
+                                (unwind-protect 
+                                    (jde-mvn-pom-parse-pom-and-call buf
+                                                                    closure
+                                                                    pom-file)
+                                  (setq *jde-mvn-poms-in-parsing*
+                                        (delete pom-file
+                                                *jde-mvn-poms-in-parsing*))))
+                            properties)
+                     (jde-mvn-wait-for-server))
                  ;; not server-mode
                  (message "Parsing POM in the background...")
                  (let ((process (apply 'jde-mvn-pom-call-maven
@@ -397,13 +398,14 @@ will be called when that process exits."
                                 (display-buffer (process-buffer process) t))
                               (message "%s exited abnormally" jde-mvn-command))
                           ;; Normal exit
-                          (jde-mvn-pom-parse-pom-and-call
-                           *jde-mvn-output-buffer*
-                           closure
-                           pom-file)
-                          (setq *jde-mvn-poms-in-parsing*
-                                (delete pom-file
-                                        *jde-mvn-poms-in-parsing*))))))))))))))
+                          (unwind-protect
+                              (jde-mvn-pom-parse-pom-and-call
+                               *jde-mvn-output-buffer*
+                               closure
+                               pom-file)
+                            (setq *jde-mvn-poms-in-parsing*
+                                  (delete pom-file
+                                          *jde-mvn-poms-in-parsing*)))))))))))))))
 
 (defun jde-mvn-pom-parse-dependency-tree-from-buffer (buffer artifactmap)
   "Parses the output of mvn dependency:tree."
@@ -558,9 +560,9 @@ will be called when that process exits."
            +jde-mvn-allowed-scopes+)))
 
 (defun* jde-mvn-pom-add-dependency (groupId artifactId version
-                                    &optional (scope 'compile) (type 'jar)
-                                    classifier
-                                    (pom-file (jde-mvn-find-pom-file)))
+                                            &optional (scope 'compile) (type 'jar)
+                                            classifier
+                                            (pom-file (jde-mvn-find-pom-file)))
   "Adds a dependency on groupId:artifactId:version to POM-FILE,
 optionally specifying scope, type and classifier.  If called
 interactively, will prompt (with completion!) for groupId,
