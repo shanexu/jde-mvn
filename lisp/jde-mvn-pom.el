@@ -344,6 +344,8 @@ parsed POM-FILE."
     (error (display-buffer buffer t)
            (funcall #'signal (car error) (cdr error)))))
 
+(defvar *jde-mvn-poms-in-parsing* nil)
+
 (defun* jde-mvn-pom-call-with-pom (closure &optional (pom-file (jde-mvn-find-pom-file)))
   "Calls CLOSURE with one argument: The parsed POM from POM-FILE,
 augmented with classpath information.  Three classpaths are
@@ -354,41 +356,54 @@ If POM-FILE exists in the cache, CLOSURE is called immediately;
 otherwise, a Maven process is started asynchronously, and CLOSURE
 will be called when that process exits."
   (let ((cached-pom (jde-mvn-get-pom-from-cache pom-file)))
-    (if cached-pom
-        (funcall closure cached-pom)
-      (lexical-let ((closure closure)
-                    (pom-file pom-file))
-        (let ((goals '(help:effective-pom dependency:tree dependency:list))
-              (properties '(:outputAbsoluteArtifactFilename t)))
-          (if jde-mvn-use-server
-              (apply #'jde-mvn-call-mvn-server jde-mvn-pom-visible
-                     pom-file goals
-                     #'(lambda (buf msg)
-                         (jde-mvn-pom-parse-pom-and-call buf
-                                                         closure
-                                                         pom-file))
-                     properties)
-            ;; not server-mode
-            (message "Parsing POM in the background...")
-            (let ((process (apply 'jde-mvn-pom-call-maven
-                                  pom-file goals properties)))
-              (set-process-sentinel
-               process
-               (lambda (process event)
-                 (when (memq (process-status process) '(signal exit))
-                   ;; OK, process is dead
-                   (if (or (eq (process-status process) 'signal)
-                           (/= (process-exit-status process) 0))
-                       (progn
-                         (when (process-buffer process)
-                           (with-current-buffer (process-buffer process)
-                             (goto-char (point-max)))
-                           (display-buffer (process-buffer process) t))
-                         (message "%s exited abnormally" jde-mvn-command))
-                     ;; Normal exit
-                     (jde-mvn-pom-parse-pom-and-call *jde-mvn-output-buffer*
-                                                     closure
-                                                     pom-file))))))))))))
+    (cond (cached-pom
+           (funcall closure cached-pom))
+          ((member pom-file *jde-mvn-poms-in-parsing*)
+           (display-warning 'jde-mvn
+                            (format "Duplicate parse attempt detected for %s"
+                                    pom-file)))
+          (t
+           (push pom-file *jde-mvn-poms-in-parsing*)
+           (lexical-let ((closure closure)
+                         (pom-file pom-file))
+             (let ((goals '(help:effective-pom dependency:tree dependency:list))
+                   (properties '(:outputAbsoluteArtifactFilename t)))
+               (if jde-mvn-use-server
+                   (apply #'jde-mvn-call-mvn-server jde-mvn-pom-visible
+                          pom-file goals
+                          #'(lambda (buf msg)
+                              (jde-mvn-pom-parse-pom-and-call buf
+                                                              closure
+                                                              pom-file)
+                              (setq *jde-mvn-poms-in-parsing*
+                                    (delete pom-file
+                                            *jde-mvn-poms-in-parsing*)))
+                          properties)
+                 ;; not server-mode
+                 (message "Parsing POM in the background...")
+                 (let ((process (apply 'jde-mvn-pom-call-maven
+                                       pom-file goals properties)))
+                   (set-process-sentinel
+                    process
+                    (lambda (process event)
+                      (when (memq (process-status process) '(signal exit))
+                        ;; OK, process is dead
+                        (if (or (eq (process-status process) 'signal)
+                                (/= (process-exit-status process) 0))
+                            (progn
+                              (when (process-buffer process)
+                                (with-current-buffer (process-buffer process)
+                                  (goto-char (point-max)))
+                                (display-buffer (process-buffer process) t))
+                              (message "%s exited abnormally" jde-mvn-command))
+                          ;; Normal exit
+                          (jde-mvn-pom-parse-pom-and-call
+                           *jde-mvn-output-buffer*
+                           closure
+                           pom-file)
+                          (setq *jde-mvn-poms-in-parsing*
+                                (delete pom-file
+                                        *jde-mvn-poms-in-parsing*))))))))))))))
 
 (defun jde-mvn-pom-parse-dependency-tree-from-buffer (buffer artifactmap)
   "Parses the output of mvn dependency:tree."
