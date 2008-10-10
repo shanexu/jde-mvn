@@ -12,7 +12,7 @@
   </dependencySets>
   <fileSets>
     <fileSet>
-      <directory>lisp</directory>
+      <directory>src/main/lisp</directory>
       <outputDirectory>lisp</outputDirectory>
     </fileSet>
   </fileSets>
