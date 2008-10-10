@@ -480,9 +480,12 @@ will be called when that process exits."
   (with-current-buffer buffer
     (goto-char (point-max))
     (search-backward "</project>")
-    (end-of-line)
+    (skip-chars-forward "^>")
+    (forward-char 1)
     (let ((end (point)))
-      (car (xml-parse-region (search-backward "<project") end)))))
+      (car (xml-parse-region (or (search-backward "<?xml " nil t)
+                                 (re-search-backward "<project[[:space:]]"))
+                             end)))))
 
 (defun jde-mvn-pom-find-all-directories (dir)
   (let ((dirs (remove-if-not #'file-directory-p
