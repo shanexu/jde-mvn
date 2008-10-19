@@ -170,7 +170,7 @@ could be found."
                           #'(lambda (buf status)
                               (unwind-protect 
                                   (funcall after-fn buf status)
-                                (set *jde-mvn-server-running* nil))))
+                                (setq *jde-mvn-server-running* nil))))
           ;; Booyah
           (let* ((buffer-obj (bsh-buffer "buffer"))
                  (native-buffer (oref buffer-obj buffer)))
