@@ -200,6 +200,7 @@ could be found."
 
 (require 'jde-mvn-pom)
 (require 'jde-mvn-build)
+(require 'jde-mvn-nexus)
 
 (jde-pi-register
  (jde-plugin "mvn"
