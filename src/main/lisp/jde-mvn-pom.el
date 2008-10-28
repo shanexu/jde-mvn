@@ -219,19 +219,6 @@ source artifacts for the dependencies of the POM."
 
 ;;; Calling Maven
 
-(defun jde-mvn-make-maven-arguments (properties)
-  (assert (evenp (length properties)) nil "PROPERTIES must be an even-length list")
-  (loop for cell on properties by #'cddr
-        collect (format "-D%s=%s"
-                        (if (keywordp (car cell))
-                            (substring (symbol-name (car cell)) 1)
-                          (car cell))
-                        (cond ((eql (cadr cell) t)
-                               "true")
-                              ((null (cadr cell))
-                               "false")
-                              (t (cadr cell))))))
-
 (defun jde-mvn-pom-call-maven (pom-file goals &rest properties)
   "Call Maven asynchronously on POM-FILE, executing GOALS (a
 string designator or a list of string designators) with

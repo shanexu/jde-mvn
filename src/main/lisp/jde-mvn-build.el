@@ -39,9 +39,10 @@ describing how the compilation finished"
   (or (cdr (assoc-string pom-file jde-mvn-build-default-goals-alist))
       jde-mvn-build-default-goals))
 
-;; TODO: some way of specifying properties
+;; TODO: some way of specifying properties interactively
 (defun* jde-mvn-build
-    (&optional goals (pom-file (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
+    (&optional goals (pom-file (jde-mvn-find-pom-file jde-mvn-pom-file-name t))
+               &rest properties)
   "Run the mvn program specified by `pom-maven-command' on the
 given POM, triggering the given goals. If given a prefix arg,
 read goals from the minibuffer.  If given two prefix
@@ -62,7 +63,7 @@ from the minibuffer."
                                (read-from-minibuffer "Goals: " nil nil nil
                                                      jde-mvn-build-interactive-goals-history))
                        (jde-mvn-build-get-default-goals pom))))
-         (list goals pom)))))
+         (list goals pom nil)))))
   (unless goals
     (setq goals (jde-mvn-build-get-default-goals pom-file)))
   (let ((cell (assoc-string pom-file jde-mvn-build-default-goals-alist)))
@@ -71,12 +72,11 @@ from the minibuffer."
       (setq jde-mvn-build-default-goals-alist (acons pom-file goals jde-mvn-build-default-goals-alist))))
   (if jde-mvn-use-server
       ;; Server mode!
-      (jde-mvn-call-mvn-server 
-       t pom-file goals
-       #'(lambda (buf msg)
-           (run-hook-with-args 'jde-mvn-build-hook buf msg))
-       ;; TODO: properties go here
-       )
+      (apply #'jde-mvn-call-mvn-server 
+             t pom-file goals
+             #'(lambda (buf msg)
+                 (run-hook-with-args 'jde-mvn-build-hook buf msg))
+             properties)
     (let ((compile-command
            (mapconcat #'identity
                       `(,jde-mvn-command
@@ -85,7 +85,8 @@ from the minibuffer."
                                  (list (symbol-name goals)))
                                 ((consp goals)
                                  (mapcar #'symbol-name goals))
-                                (t (list goals))))
+                                (t (list goals)))
+                        ,@(jde-mvn-make-maven-arguments properties))
                       " "))
           process-connection-type)
       (save-some-buffers (not compilation-ask-about-save) nil)
@@ -94,6 +95,23 @@ from the minibuffer."
                       (run-hook-with-args 'jde-mvn-build-hook buf msg)
                       (setq compilation-finish-functions nil))))
       (compilation-start compile-command))))
+
+(defun* jde-mvn-build-run-test
+    (&optional (test-class (jde-parse-get-buffer-class))
+               (pom-file (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
+  "Runs the public class in the current buffer as a test using Maven."
+  (interactive)
+  (jde-mvn-build '(test) pom-file :test test-class))
+
+(defun jde-mvn-build-test-class-buffer-p (buffer)
+  (let* ((pom-node (jde-mvn-get-pom-from-cache (jde-mvn-find-pom-file)))
+         (test-source-path (jde-mvn-get-pom-property "project.build.testSourceDirectory"
+                                                     nil
+                                                     pom-node)))
+    (and test-source-path 
+         (string-match-p (concat "^"
+                                 (regexp-quote test-source-path))
+                         (buffer-file-name buffer)))))
 
 (defun jde-mvn-build-find-failed-tests ()
   (interactive)

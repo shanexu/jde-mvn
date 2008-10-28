@@ -129,6 +129,19 @@ could be found."
   (while *jde-mvn-server-running*
     (sleep-for 0 10)))
 
+(defun jde-mvn-make-maven-arguments (properties)
+  (assert (evenp (length properties)) nil "PROPERTIES must be an even-length list")
+  (loop for cell on properties by #'cddr
+        collect (format "-D%s=%s"
+                        (if (keywordp (car cell))
+                            (substring (symbol-name (car cell)) 1)
+                          (car cell))
+                        (cond ((eql (cadr cell) t)
+                               "true")
+                              ((null (cadr cell))
+                               "false")
+                              (t (cadr cell))))))
+
 (defun jde-mvn-call-mvn-server (visible-p
                                 pom-file goals after-fn &rest properties)
   (when properties
@@ -216,6 +229,7 @@ could be found."
 	     :menu-spec
              (list (list "JDE-mvn"
                          ["Build with Maven" jde-mvn-build :active t]
+                         ["Run as test" jde-mvn-build-run-test :active (jde-mvn-build-test-class-buffer-p (current-buffer))]
                          ["Visit POM" jde-mvn-visit-pom-file :active t]
                          ["Add dependency" jde-mvn-nexus-add-dependency :active t]))))
 
