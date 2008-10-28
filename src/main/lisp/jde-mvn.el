@@ -100,6 +100,11 @@ know what you're doing."
   :type 'boolean
   :group 'jde-mvn)
 
+(defun* jde-mvn-visit-pom-file (&optional (pom-file-name jde-mvn-pom-file-name))
+  "Visits the next POM file upwards in the directory hierarchy."
+  (interactive)
+  (find-file (jde-mvn-find-pom-file pom-file-name)))
+
 (defun* jde-mvn-find-pom-file (&optional (pom-file-name jde-mvn-pom-file-name) noerror)
   "Find the next POM file upwards in the directory hierarchy.
 If NOERROR is NIL, an error will be signalled if no POM file
@@ -209,6 +214,9 @@ could be found."
                                                 (jde-pi-get-plugin-dir "mvn"))
                               t "jar$")
 	     :menu-spec
-             (list (list "JDE-mvn" ["Build with Maven" jde-mvn-build :active t]))))
+             (list (list "JDE-mvn"
+                         ["Build with Maven" jde-mvn-build :active t]
+                         ["Visit POM" jde-mvn-visit-pom-file :active t]
+                         ["Add dependency" jde-mvn-nexus-add-dependency :active t]))))
 
 (provide 'jde-mvn)
