@@ -129,3 +129,5 @@
                                         (cdr (assq 'artifactId artifact))
                                         (cdr (assq 'version artifact))
                                         scope))))))
+
+(provide 'jde-mvn-nexus)
