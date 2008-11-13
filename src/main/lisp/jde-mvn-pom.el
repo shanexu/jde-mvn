@@ -200,7 +200,7 @@ the <PROPERTY> element in the <configuration> element in that plugin."
   (jde-mvn-get-classpath pom-node 'jde-mvn:test-classpath))
 
 (defun jde-mvn-get-classpath (pom-node classpath-type)
-  (xml-get-attribute pom-node classpath-type))
+  (xml-get-attribute-or-nil pom-node classpath-type))
 
 (defun jde-mvn-make-sourcepath (pom-node include-dependency-sources)
   "Create a list of source locations from the POM.  If
