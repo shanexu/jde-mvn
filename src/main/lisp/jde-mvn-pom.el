@@ -75,6 +75,10 @@
 
 ;;; Convenience functions
 
+(defun jde-mvn-maven-project-file-p (filename)
+  (let ((default-directory (file-name-directory filename)))
+    (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
+
 (defun jde-mvn-maybe-reload-pom-file ()
   (condition-case err
       (let ((pom-file-path (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
@@ -282,14 +286,10 @@ repository."
     (jde-set-variables
      '(jde-project-name (jde-mvn-get-pom-property 'project.name "Unnamed project"
                                                   pom-node))
-     '(jde-global-classpath (list* target-directory
-                                   (jde-mvn-get-runtime-classpath pom-node)))
-     '(jde-compile-option-classpath (list* target-directory (jde-mvn-get-compile-classpath)))
-     '(jde-compile-option-directory target-directory)
      '(jde-compile-option-source (list (jde-mvn-compiler-source pom-node)))
      '(jde-compile-option-target (list (jde-mvn-compiler-target pom-node)))
-     '(jde-sourcepath (jde-mvn-make-sourcepath pom-node include-dependency-sources))
-     '(jde-built-class-path (list target-directory)))))
+     '(jde-sourcepath (jde-mvn-make-sourcepath pom-node include-dependency-sources)))
+    (jde-mvn-setup-classpath-and-output)))
 
 (defmacro* with-pom ((&optional (pom-file '(jde-mvn-find-pom-file jde-mvn-pom-file-name t))) &body body)
   "Asynchronously execute BODY with `*pom-node*' bound to the
@@ -610,7 +610,45 @@ when using dependencyManagement)."
         (nxml-up-element)
         (indent-region start-region (point))))))
 
-;;; Insinuate jde-mvn-maybe-reload-pom-file
+(defun jde-mvn-test-source-p (filename)
+  "Returns non-NIL if FILENAME is a test source file (that is, if
+it is somewhere below the Maven test sources directory."
+  (let ((default-directory (file-name-directory filename)))
+    (with-pom ()
+      (string-match-p (concat "^"
+                              (regexp-quote
+                               (jde-mvn-get-pom-property
+                                'project.build.testSourceDirectory)))
+                      filename))))
+
+(defun jde-mvn-setup-classpath-and-output ()
+  "Sets `jde-global-classpath', `jde-compile-option-classpath',
+`jde-compile-option-directory' and `jde-built-class-path'
+correctly depending on the result of `jde-mvn-test-source-p'."
+  (when (jde-mvn-maven-project-file-p (buffer-file-name))
+    (let ((test-source-p (jde-mvn-test-source-p (buffer-file-name))))
+      (with-pom ()
+        (let* ((classes-directory (jde-mvn-get-pom-property 'project.build.outputDirectory))
+               (test-classes-directory (jde-mvn-get-pom-property
+                                        'project.build.testOutputDirectory))
+               (test-classpath (list* classes-directory (jde-mvn-get-test-classpath)))
+               (target-directory (if test-source-p test-classes-directory classes-directory)))
+          (jde-set-variables
+           '(jde-global-classpath (list* target-directory
+                                         (if test-source-p
+                                             test-classpath
+                                           (jde-mvn-get-runtime-classpath))))
+           '(jde-compile-option-classpath (list* target-directory
+                                                 (if test-source-p
+                                                     test-classpath
+                                                   (jde-mvn-get-compile-classpath))))
+           '(jde-compile-option-directory target-directory)
+           '(jde-built-class-path (if test-source-p
+                                      (list test-classes-directory classes-directory)
+                                    (list classes-directory)))))))))
+
+;;; Insinuate jde-mvn-maybe-reload-pom-file and jde-mvn-setup-classpath-and-output
 (add-hook 'jde-entering-java-buffer-hook 'jde-mvn-maybe-reload-pom-file)
+(add-hook 'jde-entering-java-buffer-hook 'jde-mvn-setup-classpath-and-output)
 
 (provide 'jde-mvn-pom)
