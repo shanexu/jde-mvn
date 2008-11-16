@@ -77,9 +77,9 @@
 
 (defun jde-mvn-maybe-reload-pom-file ()
   (condition-case err
-      (let ((pom-file-path (jde-mvn-find-pom-file)))
-        (if (not pom-file-path) (setq pom-file-path ""))
+      (let ((pom-file-path (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
         (if (and
+             pom-file-path
              jde-project-context-switching-enabled-p
              (not (jde-debugger-running-p))
              (not (string=
