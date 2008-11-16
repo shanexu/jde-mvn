@@ -22,26 +22,17 @@ import java.util.Properties;
 
 import java.io.File;
 
-public class MvnServer
+public enum MvnServer
 {
-    private static MvnServer me;
-
-    public static MvnServer getInstance() {
-        if (me == null) {
-            me = new MvnServer();
-            if (!me.isUsable())
-                return null;
-        }
-        return me;
-    }
-
+    INSTANCE;
+    
     private Configuration configuration;
     private MavenEmbedder mavenEmbedder;
     private CoreErrorReporter errorReporter;
     private MavenEmbedderLogger logger;
     private MavenTransferListener transferListener;
 
-    protected MvnServer() {
+    private MvnServer() {
         configuration = buildEmbedderConfiguration();
         errorReporter = new DefaultCoreErrorReporter();
         logger = new MavenEmbedderConsoleLogger();
@@ -146,6 +137,6 @@ public class MvnServer
     }
     
     public static void main(String[] args) {
-        getInstance().run(args[0], false, "test").addProperty("maven.test.skip", "true").run();
+        INSTANCE.run(args[0], false, "test").addProperty("maven.test.skip", "true").run();
     }
 }
