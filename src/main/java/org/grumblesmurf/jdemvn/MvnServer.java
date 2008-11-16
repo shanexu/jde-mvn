@@ -36,25 +36,18 @@ public enum MvnServer
         configuration = buildEmbedderConfiguration();
         errorReporter = new DefaultCoreErrorReporter();
         logger = new MavenEmbedderConsoleLogger();
-        transferListener = new ConsoleDownloadMonitor() {
-                public void transferError(TransferEvent event) {
-                    System.out.println(event.getException().getMessage());
-                }
-            }; 
+        transferListener = new MvnServerTransferListener();
         
         if (validateConfiguration()) {
             try {
                 mavenEmbedder = new MavenEmbedder(configuration);
             } catch (MavenEmbedderException e) {
                 CLIReportingUtils.showError("Unable to start the embedder: ", e, false, errorReporter, logger);
+                throw new RuntimeException("Unabled to start the embedder", e);
             }
         }
     }
 
-    public boolean isUsable() {
-        return mavenEmbedder != null;
-    }
-            
     private Configuration buildEmbedderConfiguration() {
         Configuration configuration = new DefaultConfiguration()
             .setErrorReporter(errorReporter)
@@ -98,7 +91,15 @@ public enum MvnServer
         return run;
     }
 
-    public class RunDescriptor 
+    private static class MvnServerTransferListener
+        extends ConsoleDownloadMonitor
+    {
+        public void transferError(TransferEvent event) {
+            System.out.println(event.getException().getMessage());
+        }
+    }
+
+    public static class RunDescriptor 
     {
         File pom;
         boolean recursive;
@@ -122,12 +123,12 @@ public enum MvnServer
             MavenExecutionRequest request = new DefaultMavenExecutionRequest()
                 .setBaseDirectory(pom.getParentFile())
                 .setGoals(Arrays.asList(goals))
-                .setTransferListener(transferListener)
+                .setTransferListener(INSTANCE.transferListener)
                 .setRecursive(recursive)
                 .setProperties(properties);
             
-            MavenExecutionResult result = mavenEmbedder.execute(request);
-            CLIReportingUtils.logResult(request, result, logger);
+            MavenExecutionResult result = INSTANCE.mavenEmbedder.execute(request);
+            CLIReportingUtils.logResult(request, result, INSTANCE.logger);
             if (result.hasExceptions())
                 System.out.println("1");
             else
