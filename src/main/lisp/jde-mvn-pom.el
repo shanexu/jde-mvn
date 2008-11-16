@@ -86,7 +86,7 @@
                    (file-truename *jde-mvn-current-pom*)
                    (file-truename pom-file-path))))
             (progn
-              (setq *jde-mvn-current-pom* jde-mvn-pom-file-name)
+              (setq *jde-mvn-current-pom* pom-file-path)
               (jde-load-project-file)
               (jde-wiz-set-bsh-project))))
     (error (message 
