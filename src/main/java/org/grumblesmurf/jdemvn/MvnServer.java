@@ -95,8 +95,8 @@ public class MvnServer
         return true;
     }
     
-    public void run(String pomFileName, String... goals) {
-        run(pomFileName, false, goals).run();
+    public boolean run(String pomFileName, String... goals) {
+        return run(pomFileName, false, goals).run();
     }
 
     public RunDescriptor run(String pomFileName, boolean recursive, String... goals) {
@@ -127,7 +127,7 @@ public class MvnServer
             properties.put(key, value);
             return this;
         }
-        public void run() {
+        public boolean run() {
             MavenExecutionRequest request = new DefaultMavenExecutionRequest()
                 .setBaseDirectory(pom.getParentFile())
                 .setGoals(Arrays.asList(goals))
@@ -141,6 +141,7 @@ public class MvnServer
                 System.out.println("1");
             else
                 System.out.println("0");
+            return !result.hasExceptions();
         }
     }
     
