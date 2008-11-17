@@ -158,7 +158,7 @@ could be found."
                                      ", ")
                           " }"))
            (java-expr
-            (concat jde-mvn-server-class ".getInstance().run("
+            (concat jde-mvn-server-class ".INSTANCE.run("
                     (quotify pom-file)
                     ", false, "
                     goals
