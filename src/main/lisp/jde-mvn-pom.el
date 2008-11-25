@@ -329,9 +329,20 @@ parsed POM-FILE."
           (funcall closure pom)
           (message "POM parsing done.")))
     (error (display-buffer buffer t)
+           (puthash pom-file (cons (file-last-modified-time pom-file)
+                                   (list 'invalid-pom (cdr error))))
+           (jde-mvn-pom-clear-parsing pom-file)
            (funcall #'signal (car error) (cdr error)))))
 
 (defvar *jde-mvn-poms-in-parsing* nil)
+
+(defun jde-mvn-pom-flag-parsing (pom-file)
+  (push pom-file *jde-mvn-poms-in-parsing*))
+
+(defun jde-mvn-pom-clear-parsing (pom-file)
+  (setq *jde-mvn-poms-in-parsing*
+        (delete pom-file
+                *jde-mvn-poms-in-parsing*)))
 
 (defun* jde-mvn-pom-call-with-pom (closure &optional (pom-file (jde-mvn-find-pom-file)))
   "Calls CLOSURE with one argument: The parsed POM from POM-FILE,
@@ -348,7 +359,7 @@ will be called when that process exits."
           ((member pom-file *jde-mvn-poms-in-parsing*)
            (message "Ignoring duplicate parse request for %s." pom-file))
           (t
-           (push pom-file *jde-mvn-poms-in-parsing*)
+           (jde-mvn-pom-flag-parsing pom-file)
            (lexical-let ((closure closure)
                          (pom-file pom-file))
              (let ((goals '(help:effective-pom dependency:tree dependency:list))
@@ -362,9 +373,7 @@ will be called when that process exits."
                                     (jde-mvn-pom-parse-pom-and-call buf
                                                                     closure
                                                                     pom-file)
-                                  (setq *jde-mvn-poms-in-parsing*
-                                        (delete pom-file
-                                                *jde-mvn-poms-in-parsing*))))
+                                  (jde-mvn-pom-clear-parsing pom-file)))
                             properties)
                      (jde-mvn-wait-for-server))
                  ;; not server-mode
@@ -390,9 +399,7 @@ will be called when that process exits."
                                *jde-mvn-output-buffer*
                                closure
                                pom-file)
-                            (setq *jde-mvn-poms-in-parsing*
-                                  (delete pom-file
-                                          *jde-mvn-poms-in-parsing*)))))))))))))))
+                            (jde-mvn-pom-clear-parsing pom-file))))))))))))))
 
 (defun jde-mvn-pom-parse-dependency-tree-from-buffer (buffer artifactmap)
   "Parses the output of mvn dependency:tree."
