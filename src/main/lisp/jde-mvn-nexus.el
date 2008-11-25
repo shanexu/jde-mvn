@@ -1,6 +1,6 @@
 ;;;; jde-mvn-nexus.el --- Integrating JDEE with Nexus
 ;;
-;; Copyright (c) 2007-2008 Espen Wiborg <espenhw@grumblesmurf.org>
+;; Copyright (c) 2008 Espen Wiborg <espenhw@grumblesmurf.org>
 ;;
 ;; Permission to use, copy, modify, and distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
