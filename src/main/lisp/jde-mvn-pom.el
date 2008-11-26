@@ -626,7 +626,7 @@ it is somewhere below the Maven test sources directory."
       (string-match-p (concat "^"
                               (regexp-quote
                                (jde-mvn-get-pom-property
-                                'project.build.testSourceDirectory)))
+                                'project.build.testSourceDirectory "")))
                       filename))))
 
 (defun jde-mvn-setup-classpath-and-output ()
