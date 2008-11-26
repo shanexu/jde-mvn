@@ -330,7 +330,8 @@ parsed POM-FILE."
           (message "POM parsing done.")))
     (error (display-buffer buffer t)
            (puthash pom-file (cons (file-last-modified-time pom-file)
-                                   (list 'invalid-pom (cdr error))))
+                                   (list 'invalid-pom (cdr error)))
+                    *jde-mvnpom-cache*)
            (jde-mvn-pom-clear-parsing pom-file)
            (funcall #'signal (car error) (cdr error)))))
 
