@@ -76,8 +76,7 @@
 ;;; Convenience functions
 
 (defun jde-mvn-maven-project-file-p (filename)
-  (let ((default-directory (file-name-directory filename)))
-    (jde-mvn-find-pom-file jde-mvn-pom-file-name t)))
+  (jde-mvn-find-pom-file jde-mvn-pom-file-name t))
 
 (defun jde-mvn-maybe-reload-pom-file ()
   (condition-case err
@@ -621,13 +620,14 @@ when using dependencyManagement)."
 (defun jde-mvn-test-source-p (filename)
   "Returns non-NIL if FILENAME is a test source file (that is, if
 it is somewhere below the Maven test sources directory."
-  (let ((default-directory (file-name-directory filename)))
-    (with-pom ()
-      (string-match-p (concat "^"
-                              (regexp-quote
-                               (jde-mvn-get-pom-property
-                                'project.build.testSourceDirectory "")))
-                      filename))))
+  (unless (null filename)
+    (let ((default-directory (file-name-directory filename)))
+      (with-pom ()
+        (string-match-p (concat "^"
+                                (regexp-quote
+                                 (jde-mvn-get-pom-property
+                                  'project.build.testSourceDirectory "")))
+                        filename)))))
 
 (defun jde-mvn-setup-classpath-and-output ()
   "Sets `jde-global-classpath', `jde-compile-option-classpath',
