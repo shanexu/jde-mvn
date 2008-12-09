@@ -313,10 +313,7 @@ parsed POM-FILE."
               ;; print to *Messages*, but allows me to debug if
               ;; I need to
               (error "Failed to parse effective POM; the contents of the buffer %s might help diagnose" (buffer-name buffer)))
-          (let ((classpaths
-                 (jde-mvn-pom-parse-dependency-tree-from-buffer
-                  buffer
-                  (jde-mvn-pom-parse-dependency-list-from-buffer buffer))))
+          (let ((classpaths (jde-mvn-pom-parse-dependency-list-from-buffer buffer)))
             ;; Push the classpaths onto the POM tree
             (mapc #'(lambda (cpspec)
                       (push cpspec (nth 1 pom)))
@@ -362,7 +359,7 @@ will be called when that process exits."
            (jde-mvn-pom-flag-parsing pom-file)
            (lexical-let ((closure closure)
                          (pom-file pom-file))
-             (let ((goals '(help:effective-pom dependency:tree dependency:list))
+             (let ((goals '(help:effective-pom dependency:list))
                    (properties '(:outputAbsoluteArtifactFilename t)))
                (if jde-mvn-use-server
                    (progn
@@ -401,19 +398,37 @@ will be called when that process exits."
                                pom-file)
                             (jde-mvn-pom-clear-parsing pom-file))))))))))))))
 
-(defun jde-mvn-pom-parse-dependency-tree-from-buffer (buffer artifactmap)
-  "Parses the output of mvn dependency:tree."
+(defun jde-mvn-pom-split-line (separator)
+  (let ((point (point))
+        (eol (progn (end-of-line) (point))))
+    (goto-char point)
+    (split-string 
+     (buffer-substring-no-properties
+      point
+      (progn (skip-chars-forward "^ " eol) (point)))
+     separator)))
+
+(defun jde-mvn-pom-scope-and-location ()
+  (forward-line 0)
+  ;; skip "[INFO]"
+  (forward-char 6)
+  (skip-chars-forward "^[:alnum:]")
+  (let* ((components (jde-mvn-pom-split-line ":"))
+         (location (car (last components)))
+         (scope (car (last (butlast components)))))
+    (cons (make-keyword scope)
+          location)))
+
+(defun jde-mvn-pom-parse-dependency-list-from-buffer (buffer)
   (with-current-buffer buffer
     (goto-char (point-min))
-    (search-forward "[dependency:tree]")
-    ;; First line is this artifact, skip it
-    (forward-line 2)
-    (let ((dependencies (loop while (looking-at "\\[INFO\\] +[+|\\\\]")
-                              collect (jde-mvn-pom-artifact-coordinates)
+    (search-forward "[dependency:list]")
+    (forward-line 1)
+    (search-forward "[INFO]  ")
+    (forward-line 0)
+    (let ((dependencies (loop while (looking-at "\\[INFO\\]  +")
+                              collect (jde-mvn-pom-scope-and-location)
                               do (forward-line 1))))
-      (loop for dependency in dependencies
-            do (setf (cdr dependency)
-                     (cdr (assoc-string (cdr dependency) artifactmap))))
       (flet ((find-dependencies (scope)
                                 (let ((scopes (memq scope
                                                     +jde-mvn-scope-precedence+)))
@@ -428,47 +443,6 @@ will be called when that process exits."
                     (find-dependencies :runtime))
               (cons 'jde-mvn:test-classpath
                     (find-dependencies :test)))))))
-
-(defun jde-mvn-pom-split-line (separator)
-  (let ((point (point))
-        (eol (progn (end-of-line) (point))))
-    (goto-char point)
-    (split-string 
-     (buffer-substring-no-properties
-      point
-      (progn (skip-chars-forward "^ " eol) (point)))
-     separator)))
-
-(defun jde-mvn-pom-artifact-coordinates ()
-  (forward-line 0)
-  ;; skip "[INFO]"
-  (forward-char 6)
-  ;; skip any tree-drawing characters
-  (skip-chars-forward "^[:alnum:]")
-  (let ((components (jde-mvn-pom-split-line ":")))
-    (cons (make-keyword (car (last components)))
-          (mapconcat #'identity components ":"))))
-
-(defun jde-mvn-pom-artifact-coordinates-and-location ()
-  (forward-line 0)
-  ;; skip "[INFO]"
-  (forward-char 6)
-  (skip-chars-forward "^[:alnum:]")
-  (let ((components (jde-mvn-pom-split-line ":")))
-    (cons (mapconcat #'identity (butlast components) ":")
-          (car (last components)))))
-
-(defun jde-mvn-pom-parse-dependency-list-from-buffer (buffer)
-  (with-current-buffer buffer
-    (goto-char (point-min))
-    (search-forward "[dependency:list]")
-    (forward-line 1)
-    (search-forward "[INFO]  ")
-    (forward-line 0)
-    (loop while (looking-at "\\[INFO\\]  +")
-          collect (jde-mvn-pom-artifact-coordinates-and-location)
-          do (forward-line 1))))
-
 
 (defun jde-mvn-pom-parse-pom-from-buffer (buffer)
   (with-current-buffer buffer
