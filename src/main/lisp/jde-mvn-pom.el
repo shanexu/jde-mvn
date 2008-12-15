@@ -446,14 +446,14 @@ will be called when that process exits."
 
 (defun jde-mvn-pom-parse-pom-from-buffer (buffer)
   (with-current-buffer buffer
-    (goto-char (point-max))
-    (search-backward "</project>")
-    (skip-chars-forward "^>")
-    (forward-char 1)
-    (let ((end (point)))
-      (car (xml-parse-region (or (search-backward "<?xml " nil t)
-                                 (re-search-backward "<project[[:space:]]"))
-                             end)))))
+    (goto-char (point-min))
+    (search-forward "[help:effective-pom]")
+    (re-search-forward "<project[[:space:]]")
+    (forward-line 0)
+    (let ((start (point)))
+      (car (xml-parse-region start
+                             (progn (search-forward "</project>")
+                                    (match-end 0)))))))
 
 (defun jde-mvn-pom-find-all-directories (dir)
   (let ((dirs (remove-if-not #'file-directory-p
