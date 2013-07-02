@@ -423,7 +423,7 @@ will be called when that process exits."
 (defun jde-mvn-pom-parse-dependency-list-from-buffer (buffer)
   (with-current-buffer buffer
     (goto-char (point-min))
-    (search-forward "[dependency:list]")
+	(search-forward "--- maven-dependency-plugin:")
     (forward-line 1)
     (search-forward "[INFO]  ")
     (forward-line 0)
@@ -448,7 +448,8 @@ will be called when that process exits."
 (defun jde-mvn-pom-parse-pom-from-buffer (buffer)
   (with-current-buffer buffer
     (goto-char (point-min))
-    (search-forward "[help:effective-pom]")
+
+	(search-forward "--- maven-help-plugin:")
     (re-search-forward "<project[[:space:]]")
     (forward-line 0)
     (let ((start (point)))
