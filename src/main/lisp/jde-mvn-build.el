@@ -34,7 +34,7 @@ describing how the compilation finished"
 
 (defvar jde-mvn-build-default-goals-alist nil)
 
-(defvar jde-mvn-build-default-goals 'install)
+(defvar jde-mvn-build-default-goals 'compile)
 
 (defun jde-mvn-build-get-default-goals (pom-file)
   (or (cdr (assoc-string pom-file jde-mvn-build-default-goals-alist))
@@ -77,7 +77,7 @@ from the minibuffer."
              t pom-file goals
              #'(lambda (buf msg)
                  (run-hook-with-args 'jde-mvn-build-hook buf msg))
-             properties)
+             nil)
     (let ((compile-command
            (mapconcat #'identity
                       `(,jde-mvn-command
